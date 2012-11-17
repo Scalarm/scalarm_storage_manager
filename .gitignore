@@ -32,3 +32,7 @@ mongodb-linux-x86_64-2.2.1/bin/mongorestore
 mongodb-linux-x86_64-2.2.1/bin/mongos
 
 mongodb-linux-x86_64-2.2.1/bin/mongosniff
+
+.idea/scopes/scope_settings.xml
+
+.idea/workspace.xml
