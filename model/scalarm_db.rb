@@ -33,7 +33,9 @@ class ScalarmDb
   end
 
   def run_command_on_local_router(command)
+    result = {}
     config_services = @information_service.send_request("db_config_services").split("|||")
+
     if config_services.size > 0
       # url to any config service
       config_service_url = config_services[0].split("---")[0]
@@ -41,9 +43,12 @@ class ScalarmDb
       router_run = service_status("router")
       start_router(config_service_url) if not router_run
       db = Mongo::Connection.new("localhost").db("admin")
-      puts db.command(command).inspect
+      result = db.command(command)
+      puts result.inspect
       stop_router if not router_run
     end
+
+    result
   end
 
   def kill_processes_from_list(processes_list)
@@ -65,6 +70,11 @@ class ScalarmDb
   end
 
   def start_instance
+    if not File.exist?(File.join("./mongodb-linux-x86_64-2.2.1/bin", @config["db_instance_dbpath"]))
+      %x[mkdir -p #{File.join("./mongodb-linux-x86_64-2.2.1/bin", @config["db_instance_dbpath"])}]
+    end
+    clear_instance
+
     puts start_instance_cmd
     puts %x[#{start_instance_cmd}]
 
@@ -72,16 +82,24 @@ class ScalarmDb
     @information_service.send_request("register_db_instance", {"server" => @host, "port" => @config["db_instance_port"]})
     # adding shard
     puts "Adding shard"
-    2.times do
-      command = BSON::OrderedHash.new
-      command["addShard"] = "#{@host}:#{@config["db_instance_port"]}"
-      command["name"] = "#{@host}"
+    command = BSON::OrderedHash.new
+    command["addShard"] = "#{@host}:#{@config["db_instance_port"]}"
+
+    request_counter, response = 0, {}
+    while not (request_counter >= 20 or response.has_key?["shardAdded"])
+      request_counter += 1
 
       begin
-        run_command_on_local_router(command)
+        response = run_command_on_local_router(command)
       rescue Exception => e
         puts "Error occured #{e}"
       end
+      puts "Command #{request_counter} - #{response.inspect}"
+      sleep 1
+    end
+
+    2.times do
+
     end
   end
 
@@ -98,13 +116,35 @@ class ScalarmDb
   def stop_instance
     kill_processes_from_list(proc_list("instance"))
 
-    # removing shard
     puts "Removing shard"
-    2.times() do
-      command = BSON::OrderedHash.new
-      command["removeshard"] = "#{@host}"
+    command = BSON::OrderedHash.new
+    command["listShards"] = 1
 
-      run_command_on_local_router(command)
+    list_shards_results = run_command_on_local_router(command)
+    if list_shards_results["ok"] == 1
+      shard = list_shards_results["shards"].find{|x| x["host"] == "#{@host}:#{@config["db_instance_port"]}"}
+
+      if not shard.nil?
+        command = BSON::OrderedHash.new
+        command["removeshard"] = shard["_id"]
+
+        request_counter, response = 0, {}
+        while not (request_counter >= 20 or response["state"] == "completed")
+          request_counter += 1
+
+          begin
+            response = run_command_on_local_router(command)
+          rescue Exception => e
+            puts "Error occured #{e}"
+          end
+          puts "Command #{request_counter} - #{response.inspect}"
+          sleep 1
+        end
+      else
+        puts "Couldn't find shard with host set to #{@host}:#{@config["db_instance_port"]} - #{list_shards_results["shards"].inspect}"
+      end
+    else
+      puts "List shards command failed - #{list_shards_results.inspect}"
     end
 
     @information_service.send_request("deregister_db_instance", {"server" => @host, "port" => @config["db_instance_port"]})
@@ -113,13 +153,18 @@ class ScalarmDb
   def start_instance_cmd
     log_append = File.exist?(@config["db_instance_logpath"]) ? "--logappend" : ""
     ["cd ./mongodb-linux-x86_64-2.2.1/bin",
-      "./mongod --bind_ip #{@host} --port #{@config["db_instance_port"]} " +
+      "./mongod --shardsvr --bind_ip #{@host} --port #{@config["db_instance_port"]} " +
       "--dbpath #{@config["db_instance_dbpath"]} --logpath #{@config["db_instance_logpath"]} " +
       "--cpu --quiet --rest --fork #{log_append}"
     ].join(";")
   end
 
   def start_config
+    if not File.exist?(File.join("./mongodb-linux-x86_64-2.2.1/bin", @config["db_configsrv_dbpath"]))
+      %x[mkdir -p #{File.join("./mongodb-linux-x86_64-2.2.1/bin", @config["db_configsrv_dbpath"])}]
+    end
+    clear_config
+
     puts start_config_cmd
     puts %x[#{start_config_cmd}]
 
@@ -136,7 +181,7 @@ class ScalarmDb
       ##db.runCommand( { addShard: mongodb0.example.net, name: "mongodb0" } )
       command = BSON::OrderedHash.new
       command["addShard"] = "#{shard_host}:#{shard_port}"
-      command["name"] = "#{shard_host}"
+      #command["name"] = "#{shard_host}"
 
       puts db.command(command).inspect
     end
@@ -152,7 +197,7 @@ class ScalarmDb
 
   # ./mongod --configsvr --dbpath /opt/scalarm_storage_manager/scalarm_db_data --port 28000 --logpath /opt/scalarm_storage_manager/log/scalarm_db.log --fork
   def start_config_cmd
-    log_append = File.exist?(@config["db_instance_logpath"]) ? "--logappend" : ""
+    log_append = File.exist?(@config["db_configsrv_logpath"]) ? "--logappend" : ""
     ["cd ./mongodb-linux-x86_64-2.2.1/bin",
      "./mongod --configsvr --bind_ip #{@host} --port #{@config["db_configsrv_port"]} " +
          "--dbpath #{@config["db_configsrv_dbpath"]} --logpath #{@config["db_configsrv_logpath"]} " +

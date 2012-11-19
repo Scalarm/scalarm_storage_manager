@@ -36,3 +36,7 @@ mongodb-linux-x86_64-2.2.1/bin/mongosniff
 .idea/scopes/scope_settings.xml
 
 .idea/workspace.xml
+
+*.xml
+
+*.iml
