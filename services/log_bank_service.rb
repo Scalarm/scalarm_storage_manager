@@ -42,12 +42,6 @@ module Scalarm
         end
         puts "ScalarmUser not found for #{username}"
 
-        if [username, pass] == %w(scalarm change.NOW)
-          return
-        else
-          halt 403, 'Bad password for the old and DEPRECATED method'
-        end
-
       elsif request.env.include?('HTTP_SSL_CLIENT_S_DN') and request.env['HTTP_SSL_CLIENT_S_DN'] != '(null)' and request.env['HTTP_SSL_CLIENT_VERIFY'] == 'SUCCESS'
         puts "We can use DN(#{request.env['HTTP_SSL_CLIENT_S_DN']}) for authentication"
         scalarm_user = ScalarmUser.find_by_dn(request.env['HTTP_SSL_CLIENT_S_DN'])
@@ -62,7 +56,6 @@ module Scalarm
       end
 
       @config_yaml = settings.config_yaml
-
     end
 
     configure do
