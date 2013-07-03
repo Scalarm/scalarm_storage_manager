@@ -4,6 +4,8 @@ require 'rack'
 
 require_relative 'mongo_log_bank'
 require_relative '../model/information_service'
+require_relative '../model/simulation_manager_temp_password'
+require_relative '../model/scalarm_user'
 
 # TODO how to handle different implementations of log banks depending on passed configuration ?
 module Scalarm
@@ -11,9 +13,56 @@ module Scalarm
   class LogBankService < Sinatra::Base
     include Scalarm::MongoLogBank
 
-    use Rack::Auth::Basic, 'Restricted Area' do |username, password|
-      # TODO this should use open_id ?
-      [username, password] == %w(scalarm change.NOW)
+    before do
+
+      credentials = Rack::Auth::Basic::Request.new(request.env)
+      if credentials.provided? and credentials.basic?
+        username, pass = credentials.credentials
+
+        sm_temp_pass = SimulationManagerTempPassword.find_by_sm_uuid(username)
+
+        unless sm_temp_pass.nil?
+          if sm_temp_pass.password == pass
+            return
+          else
+            halt 403, 'Bad password for a Simulation manager'
+          end
+        end
+
+        user = ScalarmUser.find_by_login(username)
+        unless user.nil?
+          puts "ScalarmUser found #{user}"
+          halt(403, 'This user does not have a password set') if user.password.nil?
+
+          if user.password == pass
+            return
+          else
+            halt 403, 'Bad password for a Scalarm User'
+          end
+        end
+        puts "ScalarmUser not found for #{username}"
+
+        if [username, pass] == %w(scalarm change.NOW)
+          return
+        else
+          halt 403, 'Bad password for the old and DEPRECATED method'
+        end
+
+      elsif request.env.include?('HTTP_SSL_CLIENT_S_DN') and request.env['HTTP_SSL_CLIENT_S_DN'] != '(null)' and request.env['HTTP_SSL_CLIENT_VERIFY'] == 'SUCCESS'
+        puts "We can use DN(#{request.env['HTTP_SSL_CLIENT_S_DN']}) for authentication"
+        scalarm_user = ScalarmUser.find_by_dn(request.env['HTTP_SSL_CLIENT_S_DN'])
+
+        if scalarm_user.nil?
+          puts "Authentication failed: user with DN = #{request.env['HTTP_SSL_CLIENT_S_DN']} not found"
+
+          halt 403, "Authentication failed: user with DN = #{request.env['HTTP_SSL_CLIENT_S_DN']} not found"
+        else
+          return
+        end
+      end
+
+      @config_yaml = settings.config_yaml
+
     end
 
     configure do
@@ -25,10 +74,9 @@ module Scalarm
       use Rack::CommonLogger, file
 
       set :config_yaml, YAML.load_file("#{settings.root}/../etc/log_bank.yml")
-    end
 
-    before do
-      @config_yaml = settings.config_yaml
+      puts 'Mongo connection init'
+      MongoActiveRecord.connection_init(YAML.load_file("#{settings.root}/../etc/log_bank.yml"))
     end
 
     get '/status' do

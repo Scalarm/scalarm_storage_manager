@@ -64,6 +64,9 @@ case ARGV[0]
         Scalarm.start_log_bank(host, port, pid_file, information_service)
       when 'stop'
         Scalarm.stop_log_bank(host, port, pid_file, information_service)
+      when 'restart'
+        Scalarm.stop_log_bank(host, port, pid_file, information_service)
+        Scalarm.start_log_bank(host, port, pid_file, information_service)
       else
         puts "Command #{ARGV[1]} is not supported"
     end
