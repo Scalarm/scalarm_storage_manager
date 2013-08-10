@@ -125,7 +125,7 @@ module Scalarm
     end
 
     get '/experiment/:experiment_id/from/:start_id/to/:to_id' do
-      logger.info "Executing get experiment output action for simulations [#{from}, #{to}]"
+      logger.info "Executing get experiment output action for simulations [#{params[:start_id]}, #{params[:to_id]}]"
       experiment_id = params[:experiment_id]
 
       %x[cd /tmp; rm -rf experiment_#{experiment_id} experiment_#{experiment_id}.zip]
