@@ -1,4 +1,5 @@
 require_relative '../model/information_service'
+require 'mongo'
 
 module Scalarm
 
@@ -44,6 +45,8 @@ module Scalarm
 
       puts start_instance_cmd
       puts %x[#{start_instance_cmd}]
+
+      # TODO we should check if there is an already registered config service
 
       # register in information service
       @information_service.send_request('register_db_instance', { server: @host, port: @config['db_instance_port'] })
@@ -118,7 +121,7 @@ module Scalarm
       ["cd #{DB_BIN_PATH}",
        "./mongod --shardsvr --bind_ip #{@host} --port #{@config['db_instance_port']} " +
            "--dbpath #{@config['db_instance_dbpath']} --logpath #{@config['db_instance_logpath']} " +
-           "--cpu --quiet --rest --fork #{log_append}"
+           "--cpu --quiet --rest --fork --nojournal #{log_append}"
       ].join(';')
     end
 
@@ -144,7 +147,10 @@ module Scalarm
       @information_service.send_request('register_db_config_service', {server: @host, port: @config['db_config_port']})
 
       is_router_run = service_status('router')
-      start_router("#{@host}:#{@config['db_config_port']}") if not is_router_run
+      puts "Is router running: #{is_router_run}"
+      puts "Starting router at: #{@host}:#{@config['db_config_port']}"
+
+      start_router("#{@host}:#{@config['db_config_port']}")
 
       db = Mongo::Connection.new('localhost').db('admin')
       # retrieve already registered shards and add them to this service
@@ -179,7 +185,7 @@ module Scalarm
       ["cd #{DB_BIN_PATH}",
        "./mongod --configsvr --bind_ip #{@host} --port #{@config['db_config_port']} " +
            "--dbpath #{@config['db_config_dbpath']} --logpath #{@config['db_config_logpath']} " +
-           "--fork #{log_append}"
+           "--fork --nojournal #{log_append}"
       ].join(';')
     end
 
@@ -206,7 +212,7 @@ module Scalarm
       log_append = File.exist?(@config['db_router_logpath']) ? '--logappend' : ''
 
       ["cd #{DB_BIN_PATH}",
-       "./mongos --port #{@config['db_router_port']} --configdb #{config_db_url} --logpath #{@config['db_router_logpath']} --fork #{log_append}"
+       "./mongos --bind_ip #{@host} --port #{@config['db_router_port']} --configdb #{config_db_url} --logpath #{@config['db_router_logpath']} --fork #{log_append}"
       ].join(';')
     end
 
@@ -219,7 +225,7 @@ module Scalarm
         config_service_url = config_services[0].split('---')[0]
 
         router_run = service_status('router')
-        start_router(config_service_url) if not router_run
+        start_router(config_service_url)
         db = Mongo::Connection.new('localhost').db('admin')
         result = db.command(command)
         puts result.inspect
@@ -247,6 +253,7 @@ module Scalarm
                   end
 
       out = %x[ps aux | grep "#{proc_name}"]
+      #puts out
       out.split("\n").delete_if { |line| line.include? 'grep' }
     end
 

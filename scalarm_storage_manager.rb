@@ -2,9 +2,6 @@ require 'optparse'
 require 'yaml'
 require 'socket'
 
-require_relative 'services/log_bank_service'
-require_relative 'services/db_service'
-
 options = {}
 
 opt_parser = OptionParser.new do |opt|
@@ -47,6 +44,8 @@ case ARGV[0]
 
   when 'log_bank'
     puts "Calling the '#{ARGV[1]}' command for log_bank with #{options.inspect}"
+    require_relative 'services/log_bank_service'
+
     # reading config from a file
     storage_manager_root = File.split(File.expand_path($0)).first
     config_file_path = File.join(storage_manager_root, 'etc', 'log_bank.yml')
@@ -73,18 +72,19 @@ case ARGV[0]
 
   when 'db'
     puts "Calling the '#{ARGV[1]}' command for db with #{options.inspect}"
+    require_relative 'services/db_service'
     db_module = options[:db_module]
 
     storage_manager_root = File.split(File.expand_path($0)).first
     config_file_path = File.join(storage_manager_root, 'etc', 'scalarm_db.yml')
     config = YAML.load_file(config_file_path)
 
-    begin
+    #begin
       db_service = Scalarm::DbService.new(config, db_module, information_service)
       db_service.send(ARGV[1])
-    rescue Exception => e
-      puts "Error occurred while calling #{ARGV[1]} - #{e}"
-    end
+    #rescue Exception => e
+    #  puts "Error occurred while calling #{ARGV[1]} - #{e}"
+    #end
 
   else
     puts opt_parser
