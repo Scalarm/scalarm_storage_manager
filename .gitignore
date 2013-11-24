@@ -40,3 +40,24 @@ mongodb-linux-x86_64-2.2.1/bin/mongosniff
 *.xml
 
 *.iml
+mongodb
+mongodb.zip
+log/scalarm_db_config.log.2013-08-14T19-10-49
+log/scalarm_db_config.log.2013-08-14T18-52-11
+log/scalarm_db_config.log.2013-08-14T18-53-12
+log/scalarm_db_config.log.2013-08-14T19-00-57
+log/scalarm_db_config.log.2013-08-14T19-02-32
+log/scalarm_db_config.log.2013-08-14T19-04-06
+log/scalarm_db_config.log.2013-08-14T19-06-00
+log/scalarm_db_config.log.2013-08-14T19-07-23
+log/scalarm_db_config.log.2013-08-14T19-09-55
+log/scalarm_db.log
+log/scalarm_db_config.log
+log/scalarm_db_router.log
+log/thin.log
+log/development.log
+log/production.log
+scalarm_db_data
+scalarm_db_config_data
+config/thin.yml
+config/scalarm.yml
