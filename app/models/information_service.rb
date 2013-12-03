@@ -39,11 +39,16 @@ class InformationService
 
     begin
       response = Net::HTTP.start(@host, @port, ssl_options) { |http| http.request(req) }
-      puts "#{Time.now} --- response from Information Service is #{response.body}"
+      if response.code != '200'
+        puts "#{Time.now} - [is] There was a problem since the response code is #{response.code}"
+        return nil
+      else
+        puts "#{Time.now} - [is] response is #{response.body}"
+      end
 
       return response.body
     rescue Exception => e
-      puts "Exception occurred but nothing terrible :) - #{e.message}"
+      puts "#{Time.now} - [is] Exception occurred but nothing terrible :) - #{e.message}"
     end
 
     nil

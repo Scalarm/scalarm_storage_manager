@@ -1,6 +1,7 @@
 require 'yaml'
 require 'json'
 require 'mongo'
+require 'sys/filesystem'
 
 include Mongo
 
@@ -25,102 +26,77 @@ end
 
 # configuration - path to a folder with database binaries
 DB_BIN_PATH = File.join('.', 'mongodb', 'bin')
-LOCAL_IP = UDPSocket.open {|s| s.connect("64.233.187.99", 1); s.addr.last}
+LOCAL_IP = UDPSocket.open {|s| s.connect('64.233.187.99', 1); s.addr.last}
+CONFIG = YAML.load_file("#{Rails.root}/config/scalarm.yml")
 
 namespace :db_instance do
   desc 'Start DB instance'
   task :start => :environment do
-    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-
-    unless File.exist?(File.join(DB_BIN_PATH, config['db_instance_dbpath']))
-      %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_instance_dbpath'])}]
+    unless File.exist?(File.join(DB_BIN_PATH, CONFIG['db_instance_dbpath']))
+      %x[mkdir -p #{File.join(DB_BIN_PATH, CONFIG['db_instance_dbpath'])}]
     end
 
     #clear_instance(config)
+    slog('db_instance', start_instance_cmd(CONFIG))
+    slog('db_instance', %x[#{start_instance_cmd(CONFIG)}])
 
-    Rails.logger.debug(start_instance_cmd(config))
-    Rails.logger.debug(%x[#{start_instance_cmd(config)}])
-
-    information_service = InformationService.new(config['information_service_url'],
-                            config['information_service_user'], config['information_service_pass'])
-
-    information_service.register_service('db_instances', config['host'] || LOCAL_IP, config['db_instance_port'])
+    information_service = InformationService.new(CONFIG['information_service_url'],
+                                                 CONFIG['information_service_user'], CONFIG['information_service_pass'])
+    db_instance_host = CONFIG['host'] || LOCAL_IP
 
     # adding shard
     config_services = JSON.parse(information_service.get_list_of('db_config_services'))
 
     if config_services.blank?
-      puts 'There is no DB Config Services registered'
+      slog('db_instance', 'There is no DB Config Services registered')
     else
-      puts "Adding the started db instance as a new shard --- #{config_services}"
+      slog('db_instance', "Adding the started db instance as a new shard --- #{config_services}")
       command = BSON::OrderedHash.new
-      command['addShard'] = "#{config['host'] || LOCAL_IP}:#{config['db_instance_port']}"
+      command['addShard'] = "#{db_instance_host}:#{CONFIG['db_instance_port']}"
 
       # this command can take some time - hence it should be called multiple times if necessary
-      request_counter, response = 0, {}
-      until request_counter >= 20 or response.has_key?('shardAdded')
-        request_counter += 1
-
-        begin
-          response = run_command_on_local_router(command, information_service, config)
-        rescue Exception => e
-          puts "Error occured #{e}"
-        end
-          puts "Command #{request_counter} - #{response.inspect}"
-          sleep 5
-      end
+      run_command_on_local_router(command, information_service){|response| response.has_key?('shardAdded')}
     end
 
+    information_service.register_service('db_instances', db_instance_host, CONFIG['db_instance_port'])
   end
 
   desc 'Stop DB instance'
   task :stop => :environment do
-    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-    information_service = InformationService.new(config['information_service_url'],
-                                config['information_service_user'], config['information_service_pass'])
+    information_service = InformationService.new(CONFIG['information_service_url'],
+                                                 CONFIG['information_service_user'], CONFIG['information_service_pass'])
+    db_instance_host = config['host'] || LOCAL_IP
 
     config_services = JSON.parse(information_service.get_list_of('db_config_services'))
 
     if config_services.blank?
-      puts 'There is no DB config services'
+      slog('init', 'There is no DB config services')
     else
-      puts 'Removing this instance shard from db cluster'
+      slog('init', 'Removing this instance shard from db cluster')
       command = BSON::OrderedHash.new
       command['listShards'] = 1
 
-      list_shards_results = run_command_on_local_router(command, information_service, config)
+      list_shards_results = run_command_on_local_router(command, information_service){|response| response['ok'] == 1 }
 
       if list_shards_results['ok'] == 1
-        shard = list_shards_results['shards'].find { |x| x['host'] == "#{config['host']}:#{config['db_instance_port']}" }
+        shard = list_shards_results['shards'].find { |x| x['host'] == "#{db_instance_host}:#{CONFIG['db_instance_port']}" }
 
         if shard.nil?
-          puts "Couldn't find shard with host set to #{config['host'] || LOCAL_IP}:#{config['db_instance_port']} - #{list_shards_results['shards'].inspect}"
+          slog('db_instance', "There is no shard at '#{db_instance_host}:#{CONFIG['db_instance_port']}' configured")
         else
           command = BSON::OrderedHash.new
           command['removeshard'] = shard['_id']
 
-          request_counter, response = 0, {}
-          until request_counter >= 20 or response['state'] == 'completed'
-            request_counter += 1
-
-            begin
-              response = run_command_on_local_router(command, information_service, config)
-            rescue Exception => e
-              puts "Error occured #{e}"
-            end
-
-            puts "Command #{request_counter} - #{response.inspect}"
-            sleep 5
-          end
+          run_command_on_local_router(command, information_service){|response| response['state'] == 'completed'}
         end
 
       else
-        puts "List shards command failed - #{list_shards_results.inspect}"
+        slog('db_instance', "List shards command failed - #{list_shards_results.inspect}")
       end
     end
 
-    kill_processes_from_list(proc_list('instance', config))
-    information_service.deregister_service('db_instances', config['host'] || LOCAL_IP, config['db_instance_port'])
+    kill_processes_from_list(proc_list('instance', CONFIG))
+    information_service.deregister_service('db_instances', db_instance_host, CONFIG['db_instance_port'])
   end
 end
 
@@ -139,13 +115,13 @@ namespace :db_config_service do
     puts start_config_cmd(config)
     puts %x[#{start_config_cmd(config)}]
 
-    information_service.register_service('db_config_services', config['host'] || LOCAL_IP, config['db_config_port'])
 
+    db_router_host = config['db_router_host'] || config['host'] || LOCAL_IP
     puts "Starting router at: #{config['host'] || LOCAL_IP}:#{config['db_config_port']}"
 
     start_router("#{config['host'] || LOCAL_IP}:#{config['db_config_port']}", information_service, config)
 
-    db = Mongo::Connection.new(config['host'] || LOCAL_IP).db('admin')
+    db = Mongo::Connection.new(db_router_host).db('admin')
     # retrieve already registered shards and add them to this service
     JSON.parse(information_service.get_list_of('db_instances')).each do |db_instance_url|
       puts "DB instance URL: #{db_instance_url}"
@@ -156,8 +132,10 @@ namespace :db_config_service do
       puts db.command(command).inspect
     end
 
-    information_service.register_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
-    #stop_router(config) if not is_router_run
+
+    information_service.register_service('db_config_services', config['host'] || LOCAL_IP, config['db_config_port'])
+    #information_service.register_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+    stop_router(config) #if not is_router_run
   end
 
   desc 'Stop DB instance'
@@ -214,10 +192,13 @@ end
 def start_instance_cmd(config)
   log_append = File.exist?(config['db_instance_logpath']) ? '--logappend' : '--logappend'
 
+  stat = Sys::Filesystem.stat('/')
+  mb_available = stat.block_size * stat.blocks_available / 1024 / 1024
+
   ["cd #{DB_BIN_PATH}",
     "./mongod --shardsvr --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_instance_port']} " +
       "--dbpath #{config['db_instance_dbpath']} --logpath #{config['db_instance_logpath']} " +
-      "--cpu --quiet --rest --fork #{log_append} --smallfiles"
+      "--cpu --quiet --rest --fork #{log_append} #{mb_available < 5120 ? '--smallfiles' : ''}"
   ].join(';')
 end
 
@@ -243,7 +224,7 @@ def proc_list(service, config)
   out.split("\n").delete_if { |line| line.include? 'grep' }
 end
 
-def run_command_on_local_router(command, information_service, config)
+def run_command_on_local_router(command, information_service, &block)
   result = {}
   config_services = JSON.parse(information_service.get_list_of('db_config_services'))
 
@@ -251,13 +232,23 @@ def run_command_on_local_router(command, information_service, config)
     # url to any config service
     config_service_url = config_services.sample
 
-    router_run = service_status('router', config)
-    start_router(config_service_url, information_service, config)
+    router_run = service_status('router', CONFIG)
+    start_router(config_service_url, information_service, CONFIG)
 
-    db = Mongo::Connection.new(config['host'] || LOCAL_IP).db('admin')
-    result = db.command(command)
-    puts result.inspect
-    stop_router(config) if not router_run
+    db = Mongo::Connection.new('localhost').db('admin')
+
+    1.upto(10) do |attempt|
+      result = db.command(command)
+      slog('init', "DB command response: #{result.inspect}")
+
+      if yield(result)
+        break
+      else
+        sleep 3
+      end
+    end
+
+    stop_router(CONFIG) if not router_run
   end
 
   result
@@ -310,9 +301,12 @@ end
 def start_config_cmd(config)
   log_append = File.exist?(config['db_config_logpath']) ? '--logappend' : '--logappend'
 
+  stat = Sys::Filesystem.stat('/')
+  mb_available = stat.block_size * stat.blocks_available / 1024 / 1024
+
   ["cd #{DB_BIN_PATH}",
    "./mongod --configsvr --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_config_port']} " +
        "--dbpath #{config['db_config_dbpath']} --logpath #{config['db_config_logpath']} " +
-       "--fork #{log_append} --smallfiles"
+       "--fork #{log_append} #{mb_available < 5120 ? '--smallfiles' : ''}"
   ].join(';')
 end
