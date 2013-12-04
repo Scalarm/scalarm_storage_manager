@@ -63,6 +63,7 @@ socket: /tmp/scalarm_storage_manager.sock
 
 In addition, you need to download a MongoDB package for your system and unpack it in the root folder of Storage Manager.
 The folder should be named 'mongodb' - this name is hardcoded in Rakefile.
+Note: you have to start Information Service first.
 
 * Log Bank is started/stopped with the following commnads:
 
