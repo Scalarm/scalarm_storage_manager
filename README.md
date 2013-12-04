@@ -16,8 +16,8 @@ Any dependency required by native gems.
 
 * Configuration
 
-You need one configuration file ('scalarm.yml') in the config folder.
-In this file you put the following information in the YAML format:
+You need two configuration files in the config folder.
+In the first file, 'scalarm.yml', you put the following information in the YAML format:
 
 ```
 # where is the Information Service
@@ -50,6 +50,15 @@ db_config_logpath: ./../../log/scalarm_db_config.log
 db_router_host: localhost
 db_router_port: 27017
 db_router_logpath: ./../../log/scalarm_db_router.log
+```
+
+The second file, 'thin.yml', is a standard configuration file for the Thin server (the Log Bank service is exposed through
+this server):
+```
+pid: tmp/pids/thin.pid
+log: log/thin.log
+environment: production
+socket: /tmp/scalarm_storage_manager.sock
 ```
 
 In addition, you need to download a MongoDB package for your system and unpack it in the root folder of Storage Manager.
