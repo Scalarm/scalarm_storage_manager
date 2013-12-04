@@ -166,11 +166,14 @@ namespace :db_router do
 
     return if config_service_url.nil?
 
-    slog('db_router', start_router_cmd(config_service_url, config))
-    slog('db_router', %x[#{start_router_cmd(config_service_url, config)}])
+    slog('db_router', start_router_cmd(config_service_url, CONFIG))
+    slog('db_router', %x[#{start_router_cmd(config_service_url, CONFIG)}])
 
     db_router_host = CONFIG['db_router_host'] || CONFIG['host'] || LOCAL_IP
-    information_service.register_service('db_routers', db_router_host, config['db_router_port'])
+
+    if db_router_host != 'localhost'
+      information_service.register_service('db_routers', db_router_host, CONFIG['db_router_port'])
+    end
   end
 
   desc 'Stop DB router'
@@ -180,7 +183,9 @@ namespace :db_router do
                                                  CONFIG['information_service_user'], CONFIG['information_service_pass'])
 
     db_router_host = CONFIG['db_router_host'] || CONFIG['host'] || LOCAL_IP
-    information_service.deregister_service('db_routers', db_router_host, CONFIG['db_router_port'])
+    if db_router_host != 'localhost'
+      information_service.deregister_service('db_routers', db_router_host, CONFIG['db_router_port'])
+    end
   end
 end
 
