@@ -73,6 +73,11 @@ $ rake log_bank:start
 $ rake log_bank:stop
 ```
 
+Note: when deploying on the production environment you need to build assets:
+```
+$ RAILS_ENV=production rake log_bank:non_digested
+```
+
 * MongoDB sharded instance is started/stopped with the following commnads:
 
 ```
