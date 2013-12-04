@@ -36,7 +36,6 @@ namespace :db_instance do
       %x[mkdir -p #{File.join(DB_BIN_PATH, CONFIG['db_instance_dbpath'])}]
     end
 
-    #clear_instance(config)
     slog('db_instance', start_instance_cmd(CONFIG))
     slog('db_instance', %x[#{start_instance_cmd(CONFIG)}])
 
@@ -65,7 +64,7 @@ namespace :db_instance do
   task :stop => :environment do
     information_service = InformationService.new(CONFIG['information_service_url'],
                                                  CONFIG['information_service_user'], CONFIG['information_service_pass'])
-    db_instance_host = config['host'] || LOCAL_IP
+    db_instance_host = CONFIG['host'] || LOCAL_IP
 
     config_services = JSON.parse(information_service.get_list_of('db_config_services'))
 
@@ -98,97 +97,94 @@ namespace :db_instance do
     kill_processes_from_list(proc_list('instance', CONFIG))
     information_service.deregister_service('db_instances', db_instance_host, CONFIG['db_instance_port'])
   end
+
+  desc 'Remove DB instance data folder'
+  task :clean => :environment do
+    slog('db_instance', "rm -rf #{DB_BIN_PATH}/#{CONFIG['db_instance_dbpath']}/*")
+    slog('db_instance', %x[rm -rf #{DB_BIN_PATH}/#{CONFIG['db_instance_dbpath']}/*])
+  end
 end
 
 namespace :db_config_service do
   desc 'Start DB Config Service'
   task :start => :environment do
-    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-    information_service = InformationService.new(config['information_service_url'],
-                                    config['information_service_user'], config['information_service_pass'])
-
-    unless File.exist?(File.join(DB_BIN_PATH, config['db_config_dbpath']))
-      %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_config_dbpath'])}]
+    unless File.exist?(File.join(DB_BIN_PATH, CONFIG['db_config_dbpath']))
+      %x[mkdir -p #{File.join(DB_BIN_PATH, CONFIG['db_config_dbpath'])}]
     end
+
+    information_service = InformationService.new(CONFIG['information_service_url'],
+                                                 CONFIG['information_service_user'], CONFIG['information_service_pass'])
+    db_config_service_host = CONFIG['host'] || LOCAL_IP
+
     #clear_config(config)
+    slog('db_config_service', start_config_cmd(CONFIG))
+    slog('db_config_service', %x[#{start_config_cmd(CONFIG)}])
 
-    puts start_config_cmd(config)
-    puts %x[#{start_config_cmd(config)}]
-
-
-    db_router_host = config['db_router_host'] || config['host'] || LOCAL_IP
-    puts "Starting router at: #{config['host'] || LOCAL_IP}:#{config['db_config_port']}"
-
-    start_router("#{config['host'] || LOCAL_IP}:#{config['db_config_port']}", information_service, config)
-
-    db = Mongo::Connection.new(db_router_host).db('admin')
     # retrieve already registered shards and add them to this service
     JSON.parse(information_service.get_list_of('db_instances')).each do |db_instance_url|
-      puts "DB instance URL: #{db_instance_url}"
+      slog('db_config_service', "Registering shard from #{db_instance_url}")
 
       command = BSON::OrderedHash.new
       command['addShard'] = db_instance_url
 
-      puts db.command(command).inspect
+      run_command_on_local_router(command, information_service){|response| response.has_key?('shardAdded')}
     end
 
-
-    information_service.register_service('db_config_services', config['host'] || LOCAL_IP, config['db_config_port'])
-    #information_service.register_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
-    stop_router(config) #if not is_router_run
+    information_service.register_service('db_config_services', db_config_service_host, CONFIG['db_config_port'])
   end
 
   desc 'Stop DB instance'
   task :stop => :environment do
-    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-    information_service = InformationService.new(config['information_service_url'],
-                                config['information_service_user'], config['information_service_pass'])
+    information_service = InformationService.new(CONFIG['information_service_url'],
+                                                 CONFIG['information_service_user'], CONFIG['information_service_pass'])
+    db_config_service_host = CONFIG['host'] || LOCAL_IP
 
-    kill_processes_from_list(proc_list('router', config))
-    kill_processes_from_list(proc_list('config', config))
+    kill_processes_from_list(proc_list('config', CONFIG))
 
-    information_service.deregister_service('db_config_services', config['host'] || LOCAL_IP, config['db_config_port'])
-    information_service.deregister_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+    information_service.deregister_service('db_config_services', db_config_service_host, CONFIG['db_config_port'])
+  end
+
+  desc 'Remove DB Config Service data folder'
+  task :clean => :environment do
+    slog('db_config_service', "rm -rf #{DB_BIN_PATH}/#{CONFIG['db_config_dbpath']}/*")
+    slog('db_config_service', %x[rm -rf #{DB_BIN_PATH}/#{CONFIG['db_config_dbpath']}/*])
   end
 end
 
 namespace :db_router do
   desc 'Start DB router'
   task :start => :environment do
-    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-    information_service = InformationService.new(config['information_service_url'],
-                                    config['information_service_user'], config['information_service_pass'])
+    information_service = InformationService.new(CONFIG['information_service_url'],
+                                                 CONFIG['information_service_user'], CONFIG['information_service_pass'])
 
-    if service_status('router', config)
-      stop_router(config)
+    if service_status('router', CONFIG)
+      stop_router(CONFIG)
     end
-
+    # look up for a random registered config service
     config_services = JSON.parse(information_service.get_list_of('db_config_services'))
     config_service_url = config_services.sample
 
     return if config_service_url.nil?
 
-    puts start_router_cmd(config_service_url, config)
-    puts %x[#{start_router_cmd(config_service_url, config)}]
-    information_service.register_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+    slog('db_router', start_router_cmd(config_service_url, config))
+    slog('db_router', %x[#{start_router_cmd(config_service_url, config)}])
+
+    db_router_host = CONFIG['db_router_host'] || CONFIG['host'] || LOCAL_IP
+    information_service.register_service('db_routers', db_router_host, config['db_router_port'])
   end
 
   desc 'Stop DB router'
   task :stop => :environment do
-    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+    kill_processes_from_list(proc_list('router', CONFIG))
+    information_service = InformationService.new(CONFIG['information_service_url'],
+                                                 CONFIG['information_service_user'], CONFIG['information_service_pass'])
 
-    kill_processes_from_list(proc_list('router', config))
-    information_service = InformationService.new(config['information_service_url'],
-                                        config['information_service_user'], config['information_service_pass'])
-    information_service.deregister_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+    db_router_host = CONFIG['db_router_host'] || CONFIG['host'] || LOCAL_IP
+    information_service.deregister_service('db_routers', db_router_host, CONFIG['db_router_port'])
   end
 end
 
-def clear_instance(config)
-  puts "rm -rf #{DB_BIN_PATH}/#{config['db_instance_dbpath']}/*"
-  puts %x[rm -rf #{DB_BIN_PATH}/#{config['db_instance_dbpath']}/*]
-end
-
+#============================ UTIL FUNCTIONS ============================
 def start_instance_cmd(config)
   log_append = File.exist?(config['db_instance_logpath']) ? '--logappend' : '--logappend'
 
@@ -237,7 +233,7 @@ def run_command_on_local_router(command, information_service, &block)
 
     db = Mongo::Connection.new('localhost').db('admin')
 
-    1.upto(10) do |attempt|
+    1.upto(10) do
       result = db.command(command)
       slog('init', "DB command response: #{result.inspect}")
 
@@ -290,11 +286,6 @@ def start_router_cmd(config_db_url, config)
   ["cd #{DB_BIN_PATH}",
    "./mongos --bind_ip #{host} --port #{config['db_router_port']} --configdb #{config_db_url} --logpath #{config['db_router_logpath']} --fork #{log_append}"
   ].join(';')
-end
-
-def clear_config(config)
-  puts "rm -rf #{DB_BIN_PATH}/#{config['db_config_dbpath']}/*"
-  puts %x[rm -rf #{DB_BIN_PATH}/#{config['db_config_dbpath']}/*]
 end
 
 # ./mongod --configsvr --dbpath /opt/scalarm_storage_manager/scalarm_db_data --port 28000 --logpath /opt/scalarm_storage_manager/log/scalarm_db.log --fork
