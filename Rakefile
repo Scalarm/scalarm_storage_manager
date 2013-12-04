@@ -120,6 +120,8 @@ namespace :db_config_service do
     slog('db_config_service', start_config_cmd(CONFIG))
     slog('db_config_service', %x[#{start_config_cmd(CONFIG)}])
 
+    information_service.register_service('db_config_services', db_config_service_host, CONFIG['db_config_port'])
+
     # retrieve already registered shards and add them to this service
     JSON.parse(information_service.get_list_of('db_instances')).each do |db_instance_url|
       slog('db_config_service', "Registering shard from #{db_instance_url}")
@@ -130,7 +132,6 @@ namespace :db_config_service do
       run_command_on_local_router(command, information_service){|response| response.has_key?('shardAdded')}
     end
 
-    information_service.register_service('db_config_services', db_config_service_host, CONFIG['db_config_port'])
   end
 
   desc 'Stop DB instance'
