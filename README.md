@@ -47,6 +47,7 @@ db_config_dbpath: ./../../scalarm_db_config_data
 db_config_logpath: ./../../log/scalarm_db_config.log
 
 # MongoDB router settings
+# db_router_host is optional - if not provided then the 'host' parameter will be taken
 db_router_host: localhost
 db_router_port: 27017
 db_router_logpath: ./../../log/scalarm_db_router.log
