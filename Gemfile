@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 
 # Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
-gem 'rails', '4.0.1'
+gem 'rails', '4.0.2'
 gem 'racc'
 
 # DB related gems - no active record, just MongoDB
@@ -50,8 +50,7 @@ gem 'thin'
 # Use debugger
 # gem 'debugger', group: [:development, :test]
 # Rubinius specifics
-gem 'rubysl-matrix', '~> 2.1'
 gem 'rubysl', '~> 2.0'
-
+gem 'rubysl-openssl', '2.0.5'
 
 gem 'sys-filesystem'
