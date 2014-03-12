@@ -44,8 +44,8 @@ end
 # Use debugger
 # gem 'debugger', group: [:development, :test]
 # Use unicorn as the app server
-gem 'puma'
-#gem 'thin'
+#gem 'puma'
+gem 'thin'
 
 # Use debugger
 # gem 'debugger', group: [:development, :test]

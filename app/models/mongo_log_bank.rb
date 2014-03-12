@@ -43,6 +43,38 @@ class MongoLogBank
     @simulation_coll.remove({experiment_id: experiment_id, simulation_id: simulation_id})
   end
 
+  # put the given tmpfile in the mongodb specified in configuration
+  def put_simulation_stdout(experiment_id, simulation_id, tmpfile)
+    output_file_id = @binary_store.put(tmpfile)
+    # store a document in another collection with obtained object_id
+    simulation_output_doc = {
+        experiment_id: experiment_id,
+        simulation_stdout: simulation_id,
+        output_file_id: output_file_id
+    }
+
+    @simulation_coll.insert(simulation_output_doc)
+  end
+
+  # retrieve the output file id for the given experiment_id and simulation_id
+  def get_simulation_stdout(experiment_id, simulation_id)
+    simulation_output_doc = @simulation_coll.find_one({experiment_id: experiment_id, simulation_stdout: simulation_id})
+    return nil if simulation_output_doc.nil?
+    # get the actual file
+    output_file_id = simulation_output_doc['output_file_id']
+    @binary_store.get(output_file_id)
+  end
+
+      # retrieve the output file id for the given experiment_id and simulation_id
+  def delete_simulation_stdout(experiment_id, simulation_id)
+    simulation_output_doc = @simulation_coll.find_one({experiment_id: experiment_id, simulation_stdout: simulation_id})
+    return nil if simulation_output_doc.nil?
+    # get the actual file
+    output_file_id = simulation_output_doc['output_file_id']
+    @binary_store.delete(output_file_id)
+    @simulation_coll.remove({experiment_id: experiment_id, simulation_stdout: simulation_id})
+  end
+
   private
 
   def prepare_connection

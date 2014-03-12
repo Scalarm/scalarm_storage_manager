@@ -8,6 +8,9 @@ ScalarmStorageManager::Application.routes.draw do
   get 'experiment/:experiment_id/from/:start_id/to/:to_id' => 'log_bank#get_experiment_output'
   delete 'experiment/:experiment_id/from/:start_id/to/:to_id' => 'log_bank#delete_experiment_output'
 
+  put 'experiment/:experiment_id/simulation/:simulation_id/stdout' => 'log_bank#put_simulation_stdout'
+  get 'experiment/:experiment_id/simulation/:simulation_id/stdout' => 'log_bank#get_simulation_stdout'
+  delete 'experiment/:experiment_id/simulation/:simulation_id/stdout' => 'log_bank#delete_simulation_stdout'
 
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".
