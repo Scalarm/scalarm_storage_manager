@@ -1,20 +1,16 @@
 require 'bson'
 require 'mongo'
+require 'json'
 
 class MongoActiveRecord
   include Mongo
-  # static initialization
-  # initialize connection to mongodb
-  @@db = @@grid = nil
 
-  def self.connection_init(config_yaml)
-    begin
-      @@client = MongoClient.new(config_yaml['mongo_host'], config_yaml['mongo_port'])
-      @@db = @@client[config_yaml['db_name']]
-      @@grid = Mongo::Grid.new(@@db)
-    rescue Exception => e
-      puts "Could not initialize connection with MongoDB --- #{e}"
-    end
+  def self.execute_raw_command_on(db, cmd)
+    @@db.connection.db(db).command(cmd)
+  end
+
+  def self.get_collection(collection_name)
+    @@db.collection(collection_name)
   end
 
   # object instance constructor based on map of attributes (json document is good example)
@@ -29,9 +25,9 @@ class MongoActiveRecord
 
   # handling getters and setters for object instance
   def method_missing(method_name, *args, &block)
-    #puts "MongoRecord: #{method_name} - #{args.join(',')}"
+    #Rails.logger.debug("MongoRecord: #{method_name} - #{args.join(',')}")
     method_name = method_name.to_s; setter = false
-    if method_name.end_with? '='
+    if method_name.ends_with? '='
       method_name.chop!
       setter = true
     end
@@ -69,9 +65,13 @@ class MongoActiveRecord
   end
 
   def to_s
-    <<-eos
+    if self.nil?
+      'Nil'
+    else
+      <<-eos
       MongoActiveRecord - #{self.class.name} - Attributes - #{@attributes}\n
-    eos
+      eos
+    end
   end
 
   #### Class Methods ####
@@ -121,24 +121,46 @@ class MongoActiveRecord
     collection.remove(selector)
   end
 
-  private
+  def self.find_by_query(query)
+    collection = Object.const_get(name).send(:collection)
+
+    attributes = collection.find_one(query)
+
+    if attributes.nil?
+      nil
+    else
+      Object.const_get(name).new(attributes)
+    end
+  end
+
+  def self.find_all_by_query(query, opts = {})
+    collection = Object.const_get(name).send(:collection)
+
+    collection.find(query, opts).map do |attributes|
+      Object.const_get(name).new(attributes)
+    end
+  end
 
   def self.find_by(parameter, value)
     value = value.first if value.is_a? Enumerable
 
     if parameter == 'id'
-      value = BSON::ObjectId(value.to_s)
-      parameter = '_id'
+      begin
+        value = BSON::ObjectId(value.to_s)
+        parameter = '_id'
+      rescue BSON::InvalidObjectId
+        return nil
+      end
     end
 
     collection = Object.const_get(name).send(:collection)
 
     attributes = collection.find_one({ parameter => value })
 
-    if not attributes.nil?
-      Object.const_get(name).new(attributes)
-    else
+    if attributes.nil?
       nil
+    else
+      Object.const_get(name).new(attributes)
     end
   end
 
@@ -146,8 +168,12 @@ class MongoActiveRecord
     value = value.first if value.is_a? Enumerable
 
     if parameter == 'id'
-      value = BSON::ObjectId(value.to_s)
-      parameter = '_id'
+      begin
+        value = BSON::ObjectId(value.to_s)
+        parameter = '_id'
+      rescue BSON::InvalidObjectId
+        return nil
+      end
     end
 
     collection = Object.const_get(name).send(:collection)
@@ -156,6 +182,49 @@ class MongoActiveRecord
       Object.const_get(name).new(attributes)
     end
 
+  end
+
+  def self.get_database(db_name)
+    if @@client.nil?
+      nil
+    else
+      @@client[db_name]
+    end
+  end
+
+  # INITIALIZATION STUFF
+
+  def self.connection_init(storage_manager_url, db_name)
+    begin
+      Rails.logger.debug("MongoActiveRecord initialized with URL '#{storage_manager_url}' and DB '#{db_name}'")
+
+      @@client = MongoClient.new(storage_manager_url.split(':')[0], storage_manager_url.split(':')[1], { connect_timeout: 5.0 })
+      @@db = @@client[db_name]
+      @@grid = Mongo::Grid.new(@@db)
+
+      return true
+    rescue Exception => e
+      Rails.logger.debug "Could not initialize connection with MongoDB --- #{e}"
+      @@client = @@db = @@grid = nil
+    end
+
+    false
+  end
+
+  # UTILS
+
+  def self.next_sequence
+    self.get_next_sequence(self.collection_name)
+  end
+
+  def self.get_next_sequence(name)
+    collection = MongoActiveRecord.get_collection('counters')
+    collection.find_and_modify({
+                                   query: { _id: name },
+                                   update: { '$inc' => { seq: 1 } },
+                                   new: true,
+                                   upsert: true
+                               })['seq']
   end
 
 end
