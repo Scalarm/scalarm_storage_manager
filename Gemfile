@@ -56,3 +56,4 @@ platforms :rbx do
 end
 
 gem 'sys-filesystem'
+gem 'zip-zip'

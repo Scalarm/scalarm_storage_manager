@@ -1,3 +1,5 @@
+require 'zip/zip'
+require 'zip/zipfilesystem'
 require 'yaml'
 
 class LogBankController < ApplicationController
@@ -45,38 +47,69 @@ class LogBankController < ApplicationController
   end
 
   def get_experiment_output
-    %x[cd /tmp; rm -rf experiment_#{@experiment_id} experiment_#{@experiment_id}.zip]
+    t = Tempfile.new("experiment_#{@experiment_id}")
 
-    Dir.mkdir("/tmp/experiment_#{@experiment_id}")
-    %x[cd /tmp; zip experiment_#{@experiment_id}.zip ./experiment_#{@experiment_id}/]
+    # Give the path of the temp file to the zip outputstream, it won't try to open it as an archive.
+    Zip::ZipOutputStream.open(t.path) do |zos|
+      params[:start_id].to_i.upto(params[:to_id].to_i) do |simulation_id|
+        # just stream previously save binary data from the backend using included module
+        file_object = @log_bank.get_simulation_output(@experiment_id, simulation_id.to_s)
 
-    params[:start_id].to_i.upto(params[:to_id].to_i) do |simulation_id|
-      # just stream previously save binary data from the backend using included module
-      file_object = @log_bank.get_simulation_output(@experiment_id, simulation_id.to_s)
-      unless file_object.nil?
-        IO.write("/tmp/experiment_#{@experiment_id}/simulation_#{simulation_id}.tar.gz", file_object.read.force_encoding('UTF-8'))
-      end
-
-      stdout_file_object = @log_bank.get_simulation_stdout(@experiment_id, simulation_id.to_s)
-      unless stdout_file_object.nil?
-        IO.write("/tmp/experiment_#{@experiment_id}/simulation_#{simulation_id}_stdout.txt", stdout_file_object.read.force_encoding('UTF-8'))
-      end
-
-      %x[cd /tmp; zip -r experiment_#{@experiment_id}.zip ./experiment_#{@experiment_id}/; rm ./experiment_#{@experiment_id}/*]
+        unless file_object.nil?
+          # Create a new entry with some arbitrary name
+          zos.put_next_entry("experiment_#{@experiment_id}/simulation_#{simulation_id}.tar.gz")
+          # Add the contents of the file, don't read the stuff linewise if its binary, instead use direct IO
+          zos.print file_object.read.force_encoding('UTF-8')
+        end
+        
+        stdout_file_object = @log_bank.get_simulation_stdout(@experiment_id, simulation_id.to_s)
+        unless stdout_file_object.nil?
+          # Create a new entry with some arbitrary name
+          zos.put_next_entry("experiment_#{@experiment_id}/simulation_#{simulation_id}.tar.gz")
+          # Add the contents of the file, don't read the stuff linewise if its binary, instead use direct IO
+          zos.print stdout_file_object.read.force_encoding('UTF-8')
+        end
+      end      
     end
 
-    %x[cd /tmp; rm -rf experiment_#{@experiment_id}]
+    # End of the block  automatically closes the file.
+    # Send it using the right mime type, with a download window and some nice file name.
+    send_file t.path, type: 'application/zip', disposition: 'attachment', filename: "experiment_#{@experiment_id}.zip"
+    # The temp file will be deleted some time...
+    t.close
 
-    response.headers['Content-Type'] = 'Application/octet-stream'
-    response.headers['Content-Disposition'] = 'attachment; filename="experiment_' + @experiment_id + '.zip"'
+    # %x[cd /tmp; rm -rf experiment_#{@experiment_id} experiment_#{@experiment_id}.zip]
 
-    File.open("/tmp/experiment_#{@experiment_id}.zip") do |f|
-      until f.eof?
-        response.stream.write f.read(2048)
-      end
-    end
+    # Dir.mkdir("/tmp/experiment_#{@experiment_id}")
+    # %x[cd /tmp; zip experiment_#{@experiment_id}.zip ./experiment_#{@experiment_id}/]
 
-    response.stream.close
+    # params[:start_id].to_i.upto(params[:to_id].to_i) do |simulation_id|
+    #   # just stream previously save binary data from the backend using included module
+    #   file_object = @log_bank.get_simulation_output(@experiment_id, simulation_id.to_s)
+    #   unless file_object.nil?
+    #     IO.write("/tmp/experiment_#{@experiment_id}/simulation_#{simulation_id}.tar.gz", file_object.read.force_encoding('UTF-8'))
+    #   end
+
+    #   stdout_file_object = @log_bank.get_simulation_stdout(@experiment_id, simulation_id.to_s)
+    #   unless stdout_file_object.nil?
+    #     IO.write("/tmp/experiment_#{@experiment_id}/simulation_#{simulation_id}_stdout.txt", stdout_file_object.read.force_encoding('UTF-8'))
+    #   end
+
+    #   %x[cd /tmp; zip -r experiment_#{@experiment_id}.zip ./experiment_#{@experiment_id}/; rm ./experiment_#{@experiment_id}/*]
+    # end
+
+    # %x[cd /tmp; rm -rf experiment_#{@experiment_id}]
+
+    # response.headers['Content-Type'] = 'Application/octet-stream'
+    # response.headers['Content-Disposition'] = 'attachment; filename="experiment_' + @experiment_id + '.zip"'
+
+    # File.open("/tmp/experiment_#{@experiment_id}.zip") do |f|
+    #   until f.eof?
+    #     response.stream.write f.read(2048)
+    #   end
+    # end
+
+    # response.stream.close
   end
 
   def delete_experiment_output
