@@ -1,5 +1,6 @@
 require 'openssl'
 require 'net/https'
+require 'json'
 
 class InformationService
 
@@ -46,7 +47,7 @@ class InformationService
         puts "#{Time.now} - [is] response is #{response.body}"
       end
 
-      return response.body
+      return JSON.parse(response.body)
     rescue Exception => e
       puts "#{Time.now} - [is] Exception occurred but nothing terrible :) - #{e.message}"
     end

@@ -60,7 +60,7 @@ namespace :db_instance do
     db_instance_host = CONFIG['host'] || LOCAL_IP
 
     # adding shard
-    config_services = JSON.parse(information_service.get_list_of('db_config_services'))
+    config_services = information_service.get_list_of('db_config_services')
 
     if config_services.blank?
       slog('db_instance', 'There is no DB Config Services registered')
@@ -82,7 +82,7 @@ namespace :db_instance do
                                                  CONFIG['information_service_user'], CONFIG['information_service_pass'])
     db_instance_host = CONFIG['host'] || LOCAL_IP
 
-    config_services = JSON.parse(information_service.get_list_of('db_config_services'))
+    config_services = information_service.get_list_of('db_config_services')
 
     if config_services.blank?
       slog('init', 'There is no DB config services')
@@ -139,7 +139,7 @@ namespace :db_config_service do
     information_service.register_service('db_config_services', db_config_service_host, CONFIG['db_config_port'])
 
     # retrieve already registered shards and add them to this service
-    JSON.parse(information_service.get_list_of('db_instances')).each do |db_instance_url|
+    information_service.get_list_of('db_instances').each do |db_instance_url|
       slog('db_config_service', "Registering shard from #{db_instance_url}")
 
       command = BSON::OrderedHash.new
@@ -178,7 +178,7 @@ namespace :db_router do
       stop_router(CONFIG)
     end
     # look up for a random registered config service
-    config_services = JSON.parse(information_service.get_list_of('db_config_services'))
+    config_services = information_service.get_list_of('db_config_services')
     config_service_url = config_services.sample
 
     return if config_service_url.nil?
@@ -244,7 +244,7 @@ end
 
 def run_command_on_local_router(command, information_service, &block)
   result = {}
-  config_services = JSON.parse(information_service.get_list_of('db_config_services'))
+  config_services = information_service.get_list_of('db_config_services')
 
   unless config_services.blank?
     # url to any config service
@@ -286,7 +286,7 @@ def start_router(config_service_url, information_service, config)
   return if service_status('router', config)
 
   if config_service_url.nil?
-    config_services = JSON.parse(information_service.get_list_of('db_config_services'))
+    config_services = information_service.get_list_of('db_config_services')
     config_service_url = config_services.sample unless config_services.blank?
   end
 

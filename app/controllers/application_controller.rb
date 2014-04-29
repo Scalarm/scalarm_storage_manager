@@ -75,6 +75,8 @@ class ApplicationController < ActionController::Base
     session[:intended_action] = action_name
     session[:intended_controller] = controller_name
 
+    render inline: 'authentication failure', status: 401
+
     #redirect_to :login
   end
 

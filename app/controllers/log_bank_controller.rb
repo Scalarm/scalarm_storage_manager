@@ -5,6 +5,9 @@ require 'yaml'
 class LogBankController < ApplicationController
   before_filter :authenticate, :except => [ :status ]
   before_filter :load_log_bank, :except => [ :status ]
+  before_filter :authorize_get, only: [ :get_simulation_output, :get_experiment_output, :get_simulation_stdout ]
+  before_filter :authorize_put, only: [ :put_simulation_output, :put_simulation_stdout ]
+  before_filter :authorize_delete, only: [ :delete_simulation_output, :delete_experiment_output, :delete_simulation_stdout ]
 
   def status
     render inline: "Hello world from Scalarm LogBank, it's #{Time.now} at the server!\n"
@@ -133,6 +136,57 @@ class LogBankController < ApplicationController
     @log_bank = MongoLogBank.new(YAML.load_file("#{Rails.root}/config/scalarm.yml"))
     @experiment_id = params[:experiment_id]
     @simulation_id = params[:simulation_id]
+  end
+
+  # only the experiment owner or a person mentioned on the shared with experiment can get output
+  def authorize_get
+    if @current_user.nil? or @experiment_id.nil?
+      render inline: '', status: 404
+    end
+      
+    experiment = Experiment.find_by_id(@experiment_id)
+    unless experiment.owned_by?(@current_user) or experiment.shared_with?(@current_user)
+      render inline: '', status: 401      
+    end
+  end
+
+  # all types of Scalarm users (the owner, a user on the shared with list, and the Simulation Manager can put data)
+  def authorize_put
+    if @experiment_id.nil? or (@current_user.nil? and @sm_user.nil?)
+      render inline: '', status: 404
+    end
+
+    experiment = Experiment.find_by_id(@experiment_id)
+
+    if not @current_user.nil?
+
+      unless experiment.owned_by?(@current_user) or experiment.shared_with?(@current_user)
+        render inline: '', status: 401
+      end
+
+    elsif not @sm_user.nil?
+
+      unless @sm_user.executes?(experiment)
+        render inline: '', status: 401
+      end
+
+    else
+
+      render inline: '', status: 401
+      
+    end
+  end
+
+  # only the experiment owner can delete data
+  def authorize_delete
+    if @current_user.nil? or @experiment_id.nil?
+      render inline: '', status: 404
+    end
+      
+    experiment = Experiment.find_by_id(@experiment_id)
+    unless experiment.owned_by?(@current_user) 
+      render inline: '', status: 401
+    end
   end
 
 end
