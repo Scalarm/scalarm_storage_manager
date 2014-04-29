@@ -142,6 +142,7 @@ class LogBankController < ApplicationController
   def authorize_get
     if @current_user.nil? or @experiment_id.nil?
       render inline: '', status: 404
+      return 
     end
       
     experiment = Experiment.find_by_id(@experiment_id)
@@ -153,7 +154,9 @@ class LogBankController < ApplicationController
   # all types of Scalarm users (the owner, a user on the shared with list, and the Simulation Manager can put data)
   def authorize_put
     if @experiment_id.nil? or (@current_user.nil? and @sm_user.nil?)
+      Rails.logger.debug('Something is wrong')
       render inline: '', status: 404
+      return 
     end
 
     experiment = Experiment.find_by_id(@experiment_id)
@@ -165,15 +168,17 @@ class LogBankController < ApplicationController
       end
 
     elsif not @sm_user.nil?
+      Rails.logger.debug('We are on the right track')
 
       unless @sm_user.executes?(experiment)
+        Rails.logger.debug('But something went wrong')
         render inline: '', status: 401
       end
 
     else
 
       render inline: '', status: 401
-      
+
     end
   end
 
@@ -181,6 +186,7 @@ class LogBankController < ApplicationController
   def authorize_delete
     if @current_user.nil? or @experiment_id.nil?
       render inline: '', status: 404
+      return
     end
       
     experiment = Experiment.find_by_id(@experiment_id)

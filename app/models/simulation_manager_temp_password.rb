@@ -20,7 +20,7 @@ class SimulationManagerTempPassword < MongoActiveRecord
   end
 
   def executes?(experiment)
-    experiment.experiment_id == self.experiment_id
+    experiment.experiment_id.to_s == self.experiment_id
   end
 
 end
