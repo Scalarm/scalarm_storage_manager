@@ -41,7 +41,7 @@ class LogBankController < ApplicationController
     if file_object.nil?
       render inline: 'Required file not found', status: 404
     else
-      render inline: file_object.file_length.to_s
+      render json: { size: file_object.file_length }
     end
   end
 
@@ -117,7 +117,7 @@ class LogBankController < ApplicationController
       output_size += file_object.file_length unless file_object.nil?
     end
 
-    render inline: output_size.to_s
+    render json: { size: output_size }
   end
 
   def delete_experiment_output
@@ -158,7 +158,7 @@ class LogBankController < ApplicationController
     if file_object.nil?
       render inline: 'Required file not found', status: 404
     else
-      render inline: file_object.file_length.to_s
+      render json: { size: file_object.file_length }
     end
   end
 
