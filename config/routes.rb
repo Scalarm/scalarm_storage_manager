@@ -1,16 +1,19 @@
 ScalarmStorageManager::Application.routes.draw do
   get '/status' => 'log_bank#status'
 
-  put 'experiment/:experiment_id/simulation/:simulation_id' => 'log_bank#put_simulation_output'
-  get 'experiment/:experiment_id/simulation/:simulation_id' => 'log_bank#get_simulation_output'
-  delete 'experiment/:experiment_id/simulation/:simulation_id' => 'log_bank#delete_simulation_output'
+  put 'experiments/:experiment_id/simulations/:simulation_id' => 'log_bank#put_simulation_output'
+  get 'experiments/:experiment_id/simulations/:simulation_id' => 'log_bank#get_simulation_output'
+  get 'experiments/:experiment_id/simulations/:simulation_id/size' => 'log_bank#get_simulation_output_size'
+  delete 'experiments/:experiment_id/simulations/:simulation_id' => 'log_bank#delete_simulation_output'
 
-  get 'experiment/:experiment_id/from/:start_id/to/:to_id' => 'log_bank#get_experiment_output'
-  delete 'experiment/:experiment_id/from/:start_id/to/:to_id' => 'log_bank#delete_experiment_output'
+  get 'experiments/:experiment_id' => 'log_bank#get_experiment_output'
+  get 'experiments/:experiment_id/size' => 'log_bank#get_experiment_output_size'
+  delete 'experiments/:experiment_id' => 'log_bank#delete_experiment_output'
 
-  put 'experiment/:experiment_id/simulation/:simulation_id/stdout' => 'log_bank#put_simulation_stdout'
-  get 'experiment/:experiment_id/simulation/:simulation_id/stdout' => 'log_bank#get_simulation_stdout'
-  delete 'experiment/:experiment_id/simulation/:simulation_id/stdout' => 'log_bank#delete_simulation_stdout'
+  put 'experiments/:experiment_id/simulations/:simulation_id/stdout' => 'log_bank#put_simulation_stdout'
+  get 'experiments/:experiment_id/simulations/:simulation_id/stdout' => 'log_bank#get_simulation_stdout'
+  get 'experiments/:experiment_id/simulations/:simulation_id/stdout_size' => 'log_bank#get_simulation_stdout_size'
+  delete 'experiments/:experiment_id/simulations/:simulation_id/stdout' => 'log_bank#delete_simulation_stdout'
 
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".

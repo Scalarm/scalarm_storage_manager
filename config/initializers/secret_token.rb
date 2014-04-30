@@ -9,4 +9,4 @@
 
 # Make sure your secret_key_base is kept private
 # if you're sharing your code publicly.
-ScalarmStorageManager::Application.config.secret_key_base = 'b0ee2853fcea855e3a19724ab5d513c471b9ecc3a986c2dcb95335bf2c6e9784347fd1d412573ade42c34b31f3aedd4e8518e5044672266210149f0cd07f15fc'
+ScalarmStorageManager::Application.config.secret_key_base = '65686ecaaf88789c880af727c3285f1daceccea1fff50e3b089f5d0c385ad99842625387c26ada64b2ff0b8715f6e77d429a2c548fc0239973171555b1330fff'

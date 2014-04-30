@@ -3,11 +3,13 @@ require 'zip/zipfilesystem'
 require 'yaml'
 
 class LogBankController < ApplicationController
-  before_filter :authenticate, :except => [ :status ]
+  before_filter :authenticate, :except => [ :status, :get_simulation_output_size, :get_experiment_output_size, :get_simulation_stdout_size ]
   before_filter :load_log_bank, :except => [ :status ]
   before_filter :authorize_get, only: [ :get_simulation_output, :get_experiment_output, :get_simulation_stdout ]
   before_filter :authorize_put, only: [ :put_simulation_output, :put_simulation_stdout ]
   before_filter :authorize_delete, only: [ :delete_simulation_output, :delete_experiment_output, :delete_simulation_stdout ]
+
+  @@experiment_size_threshold = 1024*1024*1024*300 # 300 MB
 
   def status
     render inline: "Hello world from Scalarm LogBank, it's #{Time.now} at the server!\n"
@@ -33,6 +35,16 @@ class LogBankController < ApplicationController
 
   end
 
+  def get_simulation_output_size
+    file_object = @log_bank.get_simulation_output(@experiment_id, @simulation_id)
+
+    if file_object.nil?
+      render inline: 'Required file not found', status: 404
+    else
+      render inline: file_object.file_length.to_s
+    end
+  end
+
   def put_simulation_output
     unless params[:file] && (tmpfile = params[:file].tempfile)
       render inline: 'No file provided', status: 400
@@ -50,40 +62,67 @@ class LogBankController < ApplicationController
   end
 
   def get_experiment_output
-    t = Tempfile.new("experiment_#{@experiment_id}")
+    experiment = Experiment.find_by_id(@experiment_id)
 
-    # Give the path of the temp file to the zip outputstream, it won't try to open it as an archive.
-    Zip::ZipOutputStream.open(t.path) do |zos|
-      params[:start_id].to_i.upto(params[:to_id].to_i) do |simulation_id|
-        # just stream previously save binary data from the backend using included module
-        file_object = @log_bank.get_simulation_output(@experiment_id, simulation_id.to_s)
-
-        unless file_object.nil?
-          # Create a new entry with some arbitrary name
-          zos.put_next_entry("experiment_#{@experiment_id}/simulation_#{simulation_id}.tar.gz")
-          # Add the contents of the file, don't read the stuff linewise if its binary, instead use direct IO
-          zos.print file_object.read.force_encoding('UTF-8')
-        end
-        
-        stdout_file_object = @log_bank.get_simulation_stdout(@experiment_id, simulation_id.to_s)
-        unless stdout_file_object.nil?
-          # Create a new entry with some arbitrary name
-          zos.put_next_entry("experiment_#{@experiment_id}/simulation_#{simulation_id}_stdout.txt")
-          # Add the contents of the file, don't read the stuff linewise if its binary, instead use direct IO
-          zos.print stdout_file_object.read.force_encoding('UTF-8')
-        end
-      end      
+    output_size = 0
+    1.to_i.upto(experiment.size) do |simulation_id|
+      file_object = @log_bank.get_simulation_output(@experiment_id, simulation_id.to_s)
+      output_size += file_object.file_length unless file_object.nil?
     end
 
-    # End of the block  automatically closes the file.
-    # Send it using the right mime type, with a download window and some nice file name.
-    send_file t.path, type: 'application/zip', disposition: 'attachment', filename: "experiment_#{@experiment_id}.zip"
-    # The temp file will be deleted some time...
-    t.close
+    if output_size > @@experiment_size_threshold
+      render inline: "Experiment size: #{output_size / (1024**3)} [MB] - it is too large. Please, download subsequent simulation results manually", status: 406
+    else
+
+        t = Tempfile.new("experiment_#{@experiment_id}")
+
+        # Give the path of the temp file to the zip outputstream, it won't try to open it as an archive.
+        Zip::ZipOutputStream.open(t.path) do |zos|
+          1.to_i.upto(experiment.size) do |simulation_id|
+            # just stream previously save binary data from the backend using included module
+            file_object = @log_bank.get_simulation_output(@experiment_id, simulation_id.to_s)
+
+            unless file_object.nil?
+              # Create a new entry with some arbitrary name
+              zos.put_next_entry("experiment_#{@experiment_id}/simulation_#{simulation_id}.tar.gz")
+              # Add the contents of the file, don't read the stuff linewise if its binary, instead use direct IO
+              zos.print file_object.read.force_encoding('UTF-8')
+            end
+
+            stdout_file_object = @log_bank.get_simulation_stdout(@experiment_id, simulation_id.to_s)
+            unless stdout_file_object.nil?
+              # Create a new entry with some arbitrary name
+              zos.put_next_entry("experiment_#{@experiment_id}/simulation_#{simulation_id}_stdout.txt")
+              # Add the contents of the file, don't read the stuff linewise if its binary, instead use direct IO
+              zos.print stdout_file_object.read.force_encoding('UTF-8')
+            end
+          end
+        end
+
+        # End of the block  automatically closes the file.
+        # Send it using the right mime type, with a download window and some nice file name.
+        send_file t.path, type: 'application/zip', disposition: 'attachment', filename: "experiment_#{@experiment_id}.zip"
+        # The temp file will be deleted some time...
+        t.close
+    end
+
+  end
+
+  def get_experiment_output_size
+    output_size = 0
+    experiment = Experiment.find_by_id(@experiment_id)
+
+    1.to_i.upto(experiment.size) do |simulation_id|
+      file_object = @log_bank.get_simulation_output(@experiment_id, simulation_id.to_s)
+      output_size += file_object.file_length unless file_object.nil?
+    end
+
+    render inline: output_size.to_s
   end
 
   def delete_experiment_output
-    params[:start_id].to_i.upto(params[:to_id].to_i) do |simulation_id|
+    experiment = Experiment.find_by_id(@experiment_id)
+    1.to_i.upto(experiment.size) do |simulation_id|
       #logger.info("DELETE experiment id: #{experiment_id}, simulation_id: #{simulation_id}")
       @log_bank.delete_simulation_output(@experiment_id, simulation_id.to_s)
       @log_bank.delete_simulation_stdout(@experiment_id, simulation_id.to_s)
@@ -111,6 +150,16 @@ class LogBankController < ApplicationController
       response.stream.close
     end
 
+  end
+
+  def get_simulation_stdout_size
+    file_object = @log_bank.get_simulation_stdout(@experiment_id, @simulation_id)
+
+    if file_object.nil?
+      render inline: 'Required file not found', status: 404
+    else
+      render inline: file_object.file_length.to_s
+    end
   end
 
   def put_simulation_stdout
