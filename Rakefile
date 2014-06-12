@@ -1,7 +1,6 @@
 require 'yaml'
 require 'json'
 require 'mongo'
-require 'sys/filesystem'
 
 include Mongo
 
@@ -22,201 +21,244 @@ namespace :log_bank do
   task :stop => :environment do
     %x[thin stop -C config/thin.yml]
   end
-
-  desc 'Removing unnecessary digests on production'
-  task non_digested: :environment do
-    Rake::Task['assets:precompile'].execute
-    assets = Dir.glob(File.join(Rails.root, 'public/assets/**/*'))
-    regex = /(-{1}[a-z0-9]{32}*\.{1}){1}/
-    assets.each do |file|
-      next if File.directory?(file) || file !~ regex
-
-      source = file.split('/')
-      source.push(source.pop.gsub(regex, '.'))
-
-      non_digested = File.join(source)
-      FileUtils.cp(file, non_digested)
-    end
-  end
 end
 
 # configuration - path to a folder with database binaries
 DB_BIN_PATH = File.join('.', 'mongodb', 'bin')
-LOCAL_IP = UDPSocket.open {|s| s.connect('64.233.187.99', 1); s.addr.last}
-CONFIG = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+LOCAL_IP = UDPSocket.open {|s| s.connect("64.233.187.99", 1); s.addr.last}
 
 namespace :db_instance do
   desc 'Start DB instance'
   task :start => :environment do
-    unless File.exist?(File.join(DB_BIN_PATH, CONFIG['db_instance_dbpath']))
-      %x[mkdir -p #{File.join(DB_BIN_PATH, CONFIG['db_instance_dbpath'])}]
+    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+
+    unless File.exist?(File.join(DB_BIN_PATH, config['db_instance_dbpath']))
+      %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_instance_dbpath'])}]
     end
 
-    slog('db_instance', start_instance_cmd(CONFIG))
-    slog('db_instance', %x[#{start_instance_cmd(CONFIG)}])
+    #clear_instance(config)
 
-    information_service = InformationService.new(CONFIG['information_service_url'],
-                                                 CONFIG['information_service_user'], CONFIG['information_service_pass'])
-    db_instance_host = CONFIG['host'] || LOCAL_IP
+    Rails.logger.debug(start_instance_cmd(config))
+    Rails.logger.debug(%x[#{start_instance_cmd(config)}])
+
+    information_service = InformationService.new
+    err, msg = information_service.register_service('db_instances', config['host'] || LOCAL_IP, config['db_instance_port'])
+
+    if err
+      puts "Fatal error while registering db instance '#{err}': #{msg}"
+      return
+    end
 
     # adding shard
     config_services = information_service.get_list_of('db_config_services')
 
-    if config_services.blank?
-      slog('db_instance', 'There is no DB Config Services registered')
-    else
-      slog('db_instance', "Adding the started db instance as a new shard --- #{config_services}")
-      command = BSON::OrderedHash.new
-      command['addShard'] = "#{db_instance_host}:#{CONFIG['db_instance_port']}"
-
-      # this command can take some time - hence it should be called multiple times if necessary
-      run_command_on_local_router(command, information_service){|response| response.has_key?('shardAdded')}
+    if config_services.empty?
+      puts 'There is no DB Config Services registered'
+      return
     end
 
-    information_service.register_service('db_instances', db_instance_host, CONFIG['db_instance_port'])
+    puts "Adding the started db instance as a new shard --- #{config_services}"
+    command = BSON::OrderedHash.new
+    command['addShard'] = "#{config['host'] || LOCAL_IP}:#{config['db_instance_port']}"
+
+    # this command can take some time - hence it should be called multiple times if necessary
+    request_counter, response = 0, {}
+    until request_counter >= 20 or response.has_key?('shardAdded')
+      request_counter += 1
+
+      begin
+        response = run_command_on_local_router(command, information_service, config)
+      rescue Exception => e
+        puts "Error occured #{e}"
+      end
+        puts "Command #{request_counter} - #{response.inspect}"
+        sleep 5
+    end
   end
 
   desc 'Stop DB instance'
   task :stop => :environment do
-    information_service = InformationService.new(CONFIG['information_service_url'],
-                                                 CONFIG['information_service_user'], CONFIG['information_service_pass'])
-    db_instance_host = CONFIG['host'] || LOCAL_IP
+    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+    information_service = InformationService.new
 
+    # removing this shard from MongoDB cluster
     config_services = information_service.get_list_of('db_config_services')
 
     if config_services.blank?
-      slog('init', 'There is no DB config services')
+      puts 'There is no DB config services'
+
     else
-      slog('init', 'Removing this instance shard from db cluster')
+      puts 'Removing this instance shard from db cluster'
       command = BSON::OrderedHash.new
       command['listShards'] = 1
 
-      list_shards_results = run_command_on_local_router(command, information_service){|response| response['ok'] == 1 }
+      list_shards_results = run_command_on_local_router(command, information_service, config)
 
       if list_shards_results['ok'] == 1
-        shard = list_shards_results['shards'].find { |x| x['host'] == "#{db_instance_host}:#{CONFIG['db_instance_port']}" }
+        shard = list_shards_results['shards'].find { |x| x['host'] == "#{config['host']}:#{config['db_instance_port']}" }
 
         if shard.nil?
-          slog('db_instance', "There is no shard at '#{db_instance_host}:#{CONFIG['db_instance_port']}' configured")
+          puts "Couldn't find shard with host set to #{config['host'] || LOCAL_IP}:#{config['db_instance_port']} - #{list_shards_results['shards'].inspect}"
         else
           command = BSON::OrderedHash.new
           command['removeshard'] = shard['_id']
 
-          run_command_on_local_router(command, information_service){|response| response['state'] == 'completed'}
+          request_counter, response = 0, {}
+          until request_counter >= 20 or response['state'] == 'completed'
+            request_counter += 1
+
+            begin
+              response = run_command_on_local_router(command, information_service, config)
+            rescue Exception => e
+              puts "Error occured #{e}"
+            end
+
+            puts "Command #{request_counter} - #{response.inspect}"
+            sleep 5
+          end
         end
 
       else
-        slog('db_instance', "List shards command failed - #{list_shards_results.inspect}")
+        puts "List shards command failed - #{list_shards_results.inspect}"
       end
     end
 
-    kill_processes_from_list(proc_list('instance', CONFIG))
-    information_service.deregister_service('db_instances', db_instance_host, CONFIG['db_instance_port'])
-  end
+    puts 'Killing the service process'
+    kill_processes_from_list(proc_list('instance', config))
+    puts 'Deregistering the service from Information Service'
+    err, msg = information_service.deregister_service('db_instances', config['host'] || LOCAL_IP, config['db_instance_port'])
 
-  desc 'Remove DB instance data folder'
-  task :clean => :environment do
-    slog('db_instance', "rm -rf #{DB_BIN_PATH}/#{CONFIG['db_instance_dbpath']}/*")
-    slog('db_instance', %x[rm -rf #{DB_BIN_PATH}/#{CONFIG['db_instance_dbpath']}/*])
+    if err
+      puts "Fatal error while deregistering db instance '#{err}': #{msg}"
+    end
   end
 end
 
 namespace :db_config_service do
   desc 'Start DB Config Service'
   task :start => :environment do
-    unless File.exist?(File.join(DB_BIN_PATH, CONFIG['db_config_dbpath']))
-      %x[mkdir -p #{File.join(DB_BIN_PATH, CONFIG['db_config_dbpath'])}]
+    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+    information_service = InformationService.new
+
+    unless File.exist?(File.join(DB_BIN_PATH, config['db_config_dbpath']))
+      %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_config_dbpath'])}]
     end
-
-    information_service = InformationService.new(CONFIG['information_service_url'],
-                                                 CONFIG['information_service_user'], CONFIG['information_service_pass'])
-    db_config_service_host = CONFIG['host'] || LOCAL_IP
-
     #clear_config(config)
-    slog('db_config_service', start_config_cmd(CONFIG))
-    slog('db_config_service', %x[#{start_config_cmd(CONFIG)}])
 
-    information_service.register_service('db_config_services', db_config_service_host, CONFIG['db_config_port'])
+    puts start_config_cmd(config)
+    puts %x[#{start_config_cmd(config)}]
 
-    # retrieve already registered shards and add them to this service
-    information_service.get_list_of('db_instances').each do |db_instance_url|
-      slog('db_config_service', "Registering shard from #{db_instance_url}")
+    err, msg = information_service.register_service('db_config_services', config['host'] || LOCAL_IP, config['db_config_port'])
 
-      command = BSON::OrderedHash.new
-      command['addShard'] = db_instance_url
-
-      run_command_on_local_router(command, information_service){|response| response.has_key?('shardAdded')}
+    if err
+      puts "Fatal error while registering MongoDB config service '#{err}': #{msg}"
+      return
     end
 
+    puts "Starting router at: #{config['host'] || LOCAL_IP}:#{config['db_config_port']}"
+
+    start_router("#{config['host'] || LOCAL_IP}:#{config['db_config_port']}", information_service, config)
+
+    begin
+      db = Mongo::Connection.new(config['host'] || LOCAL_IP).db('admin')
+      # retrieve already registered shards and add them to this service
+      information_service.get_list_of('db_instances').each do |db_instance_url|
+        puts "DB instance URL: #{db_instance_url}"
+
+        command = BSON::OrderedHash.new
+        command['addShard'] = db_instance_url
+
+        puts db.command(command).inspect
+      end
+    rescue Exception => e
+      puts "An exception occurred during execution of the 'addShard' command: #{e}"
+    end
+
+    err, msg = information_service.register_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+
+    if err
+      puts "Fatal error while registering MongoDB router '#{err}': #{msg}"
+      return
+    end
+    #stop_router(config) if not is_router_run
   end
 
   desc 'Stop DB instance'
   task :stop => :environment do
-    information_service = InformationService.new(CONFIG['information_service_url'],
-                                                 CONFIG['information_service_user'], CONFIG['information_service_pass'])
-    db_config_service_host = CONFIG['host'] || LOCAL_IP
+    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+    information_service = InformationService.new
 
-    kill_processes_from_list(proc_list('config', CONFIG))
+    kill_processes_from_list(proc_list('router', config))
+    kill_processes_from_list(proc_list('config', config))
 
-    information_service.deregister_service('db_config_services', db_config_service_host, CONFIG['db_config_port'])
-  end
+    err, msg = information_service.deregister_service('db_config_services', config['host'] || LOCAL_IP, config['db_config_port'])
 
-  desc 'Remove DB Config Service data folder'
-  task :clean => :environment do
-    slog('db_config_service', "rm -rf #{DB_BIN_PATH}/#{CONFIG['db_config_dbpath']}/*")
-    slog('db_config_service', %x[rm -rf #{DB_BIN_PATH}/#{CONFIG['db_config_dbpath']}/*])
+    if err
+      puts "Fatal error while deregistering MongoDB config service '#{err}': #{msg}"
+    end
+
+    err, msg = information_service.deregister_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+
+    if err
+      puts "Fatal error while deregistering MongoDB router '#{err}': #{msg}"
+    end
   end
 end
 
 namespace :db_router do
   desc 'Start DB router'
   task :start => :environment do
-    information_service = InformationService.new(CONFIG['information_service_url'],
-                                                 CONFIG['information_service_user'], CONFIG['information_service_pass'])
+    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+    information_service = InformationService.new
 
-    if service_status('router', CONFIG)
-      stop_router(CONFIG)
+    if service_status('router', config)
+      stop_router(config)
     end
-    # look up for a random registered config service
+
     config_services = information_service.get_list_of('db_config_services')
     config_service_url = config_services.sample
 
     return if config_service_url.nil?
 
-    slog('db_router', start_router_cmd(config_service_url, CONFIG))
-    slog('db_router', %x[#{start_router_cmd(config_service_url, CONFIG)}])
+    puts start_router_cmd(config_service_url, config)
+    puts %x[#{start_router_cmd(config_service_url, config)}]
 
-    db_router_host = CONFIG['db_router_host'] || CONFIG['host'] || LOCAL_IP
+    err, msg = information_service.register_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
 
-    if db_router_host != 'localhost'
-      information_service.register_service('db_routers', db_router_host, CONFIG['db_router_port'])
+    if err
+      puts "Fatal error while registering MongoDB router '#{err}': #{msg}"
+      return
     end
   end
 
   desc 'Stop DB router'
   task :stop => :environment do
-    kill_processes_from_list(proc_list('router', CONFIG))
-    information_service = InformationService.new(CONFIG['information_service_url'],
-                                                 CONFIG['information_service_user'], CONFIG['information_service_pass'])
+    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
 
-    db_router_host = CONFIG['db_router_host'] || CONFIG['host'] || LOCAL_IP
-    if db_router_host != 'localhost'
-      information_service.deregister_service('db_routers', db_router_host, CONFIG['db_router_port'])
+    kill_processes_from_list(proc_list('router', config))
+    information_service = InformationService.new
+
+    err, msg = information_service.deregister_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+
+    if err
+      puts "Fatal error while deregistering MongoDB router '#{err}': #{msg}"
+      return
     end
   end
 end
 
-#============================ UTIL FUNCTIONS ============================
-def start_instance_cmd(config)
-  log_append = File.exist?(config['db_instance_logpath']) ? '--logappend' : '--logappend'
+def clear_instance(config)
+  puts "rm -rf #{DB_BIN_PATH}/#{config['db_instance_dbpath']}/*"
+  puts %x[rm -rf #{DB_BIN_PATH}/#{config['db_instance_dbpath']}/*]
+end
 
-  stat = Sys::Filesystem.stat('/')
-  mb_available = stat.block_size * stat.blocks_available / 1024 / 1024
+def start_instance_cmd(config)
+  log_append = File.exist?(config['db_instance_logpath']) ? '--logappend' : ''
 
   ["cd #{DB_BIN_PATH}",
     "./mongod --shardsvr --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_instance_port']} " +
       "--dbpath #{config['db_instance_dbpath']} --logpath #{config['db_instance_logpath']} " +
-      "--cpu --quiet --rest --fork #{log_append} #{mb_available < 5120 ? '--smallfiles' : ''}"
+      "--cpu --quiet --rest --fork #{log_append}"
   ].join(';')
 end
 
@@ -242,7 +284,7 @@ def proc_list(service, config)
   out.split("\n").delete_if { |line| line.include? 'grep' }
 end
 
-def run_command_on_local_router(command, information_service, &block)
+def run_command_on_local_router(command, information_service, config)
   result = {}
   config_services = information_service.get_list_of('db_config_services')
 
@@ -250,23 +292,18 @@ def run_command_on_local_router(command, information_service, &block)
     # url to any config service
     config_service_url = config_services.sample
 
-    router_run = service_status('router', CONFIG)
-    start_router(config_service_url, information_service, CONFIG)
+    router_run = service_status('router', config)
+    start_router(config_service_url, information_service, config)
 
-    db = Mongo::Connection.new('localhost').db('admin')
-
-    1.upto(10) do
+    begin
+      db = Mongo::Connection.new(config['host'] || LOCAL_IP).db('admin')
       result = db.command(command)
-      slog('init', "DB command response: #{result.inspect}")
-
-      if yield(result)
-        break
-      else
-        sleep 3
-      end
+      puts result.inspect
+      stop_router(config) if not router_run
+    rescue Exception => e
+      puts "An error occurred during command execution on MongoDB: #{e.inspect}"
+      result['ok'] = 0
     end
-
-    stop_router(CONFIG) if not router_run
   end
 
   result
@@ -302,24 +339,25 @@ end
 
 # ./mongos --configdb eusas17.local:28000 --logpath /opt/scalarm_storage_manager/log/scalarm.log --fork
 def start_router_cmd(config_db_url, config)
-  log_append = File.exist?(config['db_router_logpath']) ? '--logappend' : '--logappend'
-  host = config['db_router_host'] || config['host'] || LOCAL_IP
+  log_append = File.exist?(config['db_router_logpath']) ? '--logappend' : ''
 
   ["cd #{DB_BIN_PATH}",
-   "./mongos --bind_ip #{host} --port #{config['db_router_port']} --configdb #{config_db_url} --logpath #{config['db_router_logpath']} --fork #{log_append}"
+   "./mongos --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_router_port']} --configdb #{config_db_url} --logpath #{config['db_router_logpath']} --fork #{log_append}"
   ].join(';')
+end
+
+def clear_config(config)
+  puts "rm -rf #{DB_BIN_PATH}/#{config['db_config_dbpath']}/*"
+  puts %x[rm -rf #{DB_BIN_PATH}/#{config['db_config_dbpath']}/*]
 end
 
 # ./mongod --configsvr --dbpath /opt/scalarm_storage_manager/scalarm_db_data --port 28000 --logpath /opt/scalarm_storage_manager/log/scalarm_db.log --fork
 def start_config_cmd(config)
-  log_append = File.exist?(config['db_config_logpath']) ? '--logappend' : '--logappend'
-
-  stat = Sys::Filesystem.stat('/')
-  mb_available = stat.block_size * stat.blocks_available / 1024 / 1024
+  log_append = File.exist?(config['db_config_logpath']) ? '--logappend' : ''
 
   ["cd #{DB_BIN_PATH}",
    "./mongod --configsvr --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_config_port']} " +
        "--dbpath #{config['db_config_dbpath']} --logpath #{config['db_config_logpath']} " +
-       "--fork #{log_append} #{mb_available < 5120 ? '--smallfiles' : ''}"
+       "--fork #{log_append}"
   ].join(';')
 end
