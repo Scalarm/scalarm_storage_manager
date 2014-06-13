@@ -54,25 +54,24 @@ namespace :db_instance do
 
     if config_services.empty?
       puts 'There is no DB Config Services registered'
-      return
-    end
+    else
+      puts "Adding the started db instance as a new shard --- #{config_services}"
+      command = BSON::OrderedHash.new
+      command['addShard'] = "#{config['host'] || LOCAL_IP}:#{config['db_instance_port']}"
 
-    puts "Adding the started db instance as a new shard --- #{config_services}"
-    command = BSON::OrderedHash.new
-    command['addShard'] = "#{config['host'] || LOCAL_IP}:#{config['db_instance_port']}"
+      # this command can take some time - hence it should be called multiple times if necessary
+      request_counter, response = 0, {}
+      until request_counter >= 20 or response.has_key?('shardAdded')
+        request_counter += 1
 
-    # this command can take some time - hence it should be called multiple times if necessary
-    request_counter, response = 0, {}
-    until request_counter >= 20 or response.has_key?('shardAdded')
-      request_counter += 1
-
-      begin
-        response = run_command_on_local_router(command, information_service, config)
-      rescue Exception => e
-        puts "Error occured #{e}"
-      end
+        begin
+          response = run_command_on_local_router(command, information_service, config)
+        rescue Exception => e
+          puts "Error occured #{e}"
+        end
         puts "Command #{request_counter} - #{response.inspect}"
         sleep 5
+      end
     end
   end
 
