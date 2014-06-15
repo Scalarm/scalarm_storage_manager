@@ -27,6 +27,17 @@ end
 DB_BIN_PATH = File.join('.', 'mongodb', 'bin')
 LOCAL_IP = UDPSocket.open {|s| s.connect("64.233.187.99", 1); s.addr.last}
 
+namespace :service do
+  task :start => [:environment, 'db_instance:start', 'db_config_service:start', 'log_bank:start' ] do
+
+  end
+
+  task :stop => [:environment, 'db_config_service:stop', 'db_instance:stop', 'log_bank:stop' ] do
+
+  end
+
+end
+
 namespace :db_instance do
   desc 'Start DB instance'
   task :start => :environment do
