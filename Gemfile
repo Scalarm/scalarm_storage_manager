@@ -7,6 +7,7 @@ gem 'rails', '4.1.1'
 gem 'mongo'
 gem 'bson'
 gem 'bson_ext'
+gem 'rubyzip', '~> 0.9.9'
 
 # Default web server
 gem 'thin'
