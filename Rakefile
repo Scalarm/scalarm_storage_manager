@@ -264,12 +264,13 @@ def clear_instance(config)
 end
 
 def start_instance_cmd(config)
-  log_append = File.exist?(config['db_instance_logpath']) ? '--logappend' : ''
+  stat = Sys::Filesystem.stat('/')
+  mb_available = stat.block_size * stat.blocks_available / 1024 / 1024
 
   ["cd #{DB_BIN_PATH}",
     "./mongod --shardsvr --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_instance_port']} " +
       "--dbpath #{config['db_instance_dbpath']} --logpath #{config['db_instance_logpath']} " +
-      "--cpu --quiet --rest --fork #{log_append}"
+      "--cpu --quiet --rest --fork #{log_append} #{mb_available < 5120 ? '--smallfiles' : ''}"
   ].join(';')
 end
 
@@ -351,13 +352,9 @@ end
 # ./mongos --configdb eusas17.local:28000 --logpath /opt/scalarm_storage_manager/log/scalarm.log --fork
 def start_router_cmd(config_db_url, config)
   log_append = File.exist?(config['db_router_logpath']) ? '--logappend' : ''
-  stat = Sys::Filesystem.stat('/')
-  mb_available = stat.block_size * stat.blocks_available / 1024 / 1024
 
   ["cd #{DB_BIN_PATH}",
-    "./mongod --shardsvr --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_instance_port']} " +
-      "--dbpath #{config['db_instance_dbpath']} --logpath #{config['db_instance_logpath']} " +
-      "--cpu --quiet --rest --fork #{log_append} #{mb_available < 5120 ? '--smallfiles' : ''}"
+   "./mongos --bind_ip #{host} --port #{config['db_router_port']} --configdb #{config_db_url} --logpath #{config['db_router_logpath']} --fork #{log_append}"
   ].join(';')
 end
 
