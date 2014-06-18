@@ -15,6 +15,8 @@ gem 'thin'
 # third-party monitoring
 gem 'newrelic_rpm'
 
+gem 'sys-filesystem'
+
 # Use SCSS for stylesheets
 #gem 'sass-rails', '~> 4.0.0'
 
