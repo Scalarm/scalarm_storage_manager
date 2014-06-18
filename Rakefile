@@ -271,7 +271,7 @@ def start_instance_cmd(config)
   ["cd #{DB_BIN_PATH}",
     "./mongod --shardsvr --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_instance_port']} " +
       "--dbpath #{config['db_instance_dbpath']} --logpath #{config['db_instance_logpath']} " +
-      "--cpu --quiet --rest --fork #{log_append}"
+      "--cpu --quiet --rest --fork #{log_append} #{mb_available < 5120 ? '--smallfiles' : ''}"
   ].join(';')
 end
 
