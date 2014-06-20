@@ -1,4 +1,4 @@
-[Scalarm Logo](http://scalarm.com/images/scalarmNiebieskiemale.png)
+![Scalarm Logo](http://scalarm.com/images/scalarmNiebieskiemale.png)
 
 Scalarm Storage Manager
 =======================
