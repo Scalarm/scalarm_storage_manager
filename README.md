@@ -200,10 +200,9 @@ To check if Storage Manager Log Bank started successfully you can check the stat
 
 ```
 $ curl -k https://localhost:20000/status
-
 Hello world from Scalarm LogBank, it's 2014-04-30 17:01:45 +0200 at the server!
-
 ```
+
 One last thing to do is to register Storage Manager Log Bank in the Scalarm Information Service. With the presented configuration (and assuming we are working on a hypothetical IP address 172.16.67.77) we just need to:
 
 ```
@@ -215,3 +214,8 @@ When running in a production-like environment please replace the secret token in
 ```
 $ rake secret
 ```
+
+License
+----
+
+MIT
