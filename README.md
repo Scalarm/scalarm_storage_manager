@@ -49,9 +49,9 @@ $ git clone https://github.com/Scalarm/scalarm_storage_manager
 ```
 
 A dependency which is not provided in MongoDB - for the Linux OS you can download it with:
-$ wget http://www.mongodb.org/dr//fastdl.mongodb.org/linux/mongodb-linux-x86_64-2.6.0.tgz/download
 
 ```
+$ wget http://www.mongodb.org/dr//fastdl.mongodb.org/linux/mongodb-linux-x86_64-2.6.0.tgz/download
 $ mv download download.tar.gz
 $ tar xzvf download.tar.gz
 $ mv mongodb-linux-x86_64-2.6.0 mongodb
