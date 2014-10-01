@@ -3,43 +3,41 @@ require 'socket'
 require 'ipaddr'
 require 'openssl'
 
-if ENV['LOAD_BALANCER'] != '' or ENV['LOAD_BALANCER'] != 'true'
-  ENV['LOAD_BALANCER'] = 'true'
-
-  MULTICAST_ADDR = '224.1.2.3'
-  PORT = 8000
+unless Rails.application.secrets.disable_load_balancer_registration
+  MULTICAST_ADDR, PORT  = Rails.application.secrets[:multicast_address].split(':')
   BIND_ADDR = '0.0.0.0'
+  message = 'error'
+  begin
+    socket = UDPSocket.new
+    membership = IPAddr.new(MULTICAST_ADDR).hton + IPAddr.new(BIND_ADDR).hton
 
-  socket = UDPSocket.new
-  membership = IPAddr.new(MULTICAST_ADDR).hton + IPAddr.new(BIND_ADDR).hton
+    socket.setsockopt(:IPPROTO_IP, :IP_ADD_MEMBERSHIP, membership)
+    socket.setsockopt(:SOL_SOCKET, :SO_REUSEPORT, 1)
 
-  socket.setsockopt(:IPPROTO_IP, :IP_ADD_MEMBERSHIP, membership)
-  #socket.setsockopt(:SOL_SOCKET, :SO_REUSEPORT, 1)
-
-  socket.bind(BIND_ADDR, PORT)
-
-  message, _ = socket.recvfrom(20)
-  #load_balancer_address = "https://#{message.strip}/register"
-  load_balancer_address = "https://#{message.strip}/storage_managers/register"
-  puts "Registration to load balancer: #{load_balancer_address}"
-  port = '20000'
-
-  if defined? ENV['PORT_SM'] and ENV['PORT_SM'] != nil and ENV['PORT_SM'] != ''
-    port = "#{ENV['PORT_SM']}"
+    socket.bind(BIND_ADDR, PORT)
+    begin
+      timeout(30) do
+        message, _ = socket.recvfrom(20)
+      end
+    rescue Timeout::Error => e
+      puts "Unable to receive load balancer address: #{e.message}"
+    end
+  rescue SocketError => e
+    puts "Unable to establish multicast connection: #{e.message}"
   end
-  puts "Port #{port}"
-  #Net::HTTP.post_form(URI.parse(URI.encode(load_balancer_address)),
-  #                    {'address'=> "localhost:#{port}"})
 
-  uri = URI.parse(URI.encode(load_balancer_address))
+  if message != 'error'
+    port = (Rails.application.secrets[:port] or '20000')
+    load_balancer_address = "https://#{message.strip}/register"
 
-  req = Net::HTTP::Post.new(uri)
-  req.set_form_data('address'=> "localhost:#{port}")
-  req.basic_auth 'scalarm', 'scalarm'
-
-  res = Net::HTTP.start(uri.hostname, uri.port, :use_ssl => uri.scheme == 'https') {|http|
-    http.request(req)
-  }
-  puts res.body
+    begin
+      res = Net::HTTP.post_form(URI.parse(URI.encode(load_balancer_address)),
+                                {'address'=> "localhost:#{port}", 'name'=>'StorageManager'})
+      puts "Load balancer message: #{res.body}"
+    rescue StandardError, Timeout::Error => e
+      puts "Registration to load balancer failed: #{e.message}"
+      raise
+    end
+  end
 
 end
