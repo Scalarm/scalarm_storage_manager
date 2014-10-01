@@ -28,7 +28,11 @@ unless Rails.application.secrets.disable_load_balancer_registration
 
   if message != 'error'
     port = (Rails.application.secrets[:port] or '20000')
-    load_balancer_address = "https://#{message.strip}/register"
+    scheme = 'https'
+    if Rails.application.secrets.load_balancer_development
+      scheme = 'http'
+    end
+    load_balancer_address = "#{scheme}://#{message.strip}/register"
 
     begin
       res = Net::HTTP.post_form(URI.parse(URI.encode(load_balancer_address)),
