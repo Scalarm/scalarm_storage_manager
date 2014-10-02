@@ -26,7 +26,7 @@ end
 
 # configuration - path to a folder with database binaries
 DB_BIN_PATH = File.join('.', 'mongodb', 'bin')
-LOCAL_IP = UDPSocket.open {|s| s.connect("64.233.187.99", 1); s.addr.last}
+LOCAL_IP = UDPSocket.open {|s| begin s.connect("64.233.187.99", 1); s.addr.last rescue "127.0.0.1" end }
 
 namespace :service do
   task :start => [:environment, 'db_instance:start', 'db_config_service:start', 'log_bank:start' ] do

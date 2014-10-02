@@ -62,48 +62,41 @@ class LogBankController < ApplicationController
   end
 
   def get_experiment_output
-    experiment = Experiment.find_by_id(@experiment_id)
-
-    output_size = 0
-    1.to_i.upto(experiment.size) do |simulation_id|
-      file_object = @log_bank.get_simulation_output(@experiment_id, simulation_id.to_s)
-      output_size += file_object.file_length unless file_object.nil?
-    end
+    output_size = @log_bank.get_experiment_output_size(@experiment_id)
 
     if output_size > @@experiment_size_threshold
       render inline: "Experiment size: #{output_size / (1024**3)} [MB] - it is too large. Please, download subsequent simulation results manually", status: 406
     else
+      t = Tempfile.new("experiment_#{@experiment_id}")
 
-        t = Tempfile.new("experiment_#{@experiment_id}")
+      # Give the path of the temp file to the zip outputstream, it won't try to open it as an archive.
+      Zip::ZipOutputStream.open(t.path) do |zos|
+        @log_bank.get_output_files(@experiment_id).each do |file_doc|
+          file_object = @log_bank.get_file_object(file_doc['output_file_id'])
 
-        # Give the path of the temp file to the zip outputstream, it won't try to open it as an archive.
-        Zip::ZipOutputStream.open(t.path) do |zos|
-          1.to_i.upto(experiment.size) do |simulation_id|
-            # just stream previously save binary data from the backend using included module
-            file_object = @log_bank.get_simulation_output(@experiment_id, simulation_id.to_s)
-
-            unless file_object.nil?
+          unless file_object.nil?
+            if file_doc.include?('simulation_id')
               # Create a new entry with some arbitrary name
-              zos.put_next_entry("experiment_#{@experiment_id}/simulation_#{simulation_id}.tar.gz")
-              # Add the contents of the file, don't read the stuff linewise if its binary, instead use direct IO
+              zos.put_next_entry("experiment_#{@experiment_id}/simulation_#{file_doc['simulation_id']}.tar.gz")
+              # Add the contents of the file, don't read the stuff likewise if its binary, instead use direct IO
+              zos.print file_object.read.force_encoding('UTF-8')
+
+            elsif file_doc.include?('simulation_stdout')
+              # Create a new entry with some arbitrary name
+              zos.put_next_entry("experiment_#{@experiment_id}/simulation_#{file_doc['simulation_stdout']}_stdout.txt")
+              # Add the contents of the file, don't read the stuff likewise if its binary, instead use direct IO
               zos.print file_object.read.force_encoding('UTF-8')
             end
 
-            stdout_file_object = @log_bank.get_simulation_stdout(@experiment_id, simulation_id.to_s)
-            unless stdout_file_object.nil?
-              # Create a new entry with some arbitrary name
-              zos.put_next_entry("experiment_#{@experiment_id}/simulation_#{simulation_id}_stdout.txt")
-              # Add the contents of the file, don't read the stuff linewise if its binary, instead use direct IO
-              zos.print stdout_file_object.read.force_encoding('UTF-8')
-            end
           end
         end
+      end
 
-        # End of the block  automatically closes the file.
-        # Send it using the right mime type, with a download window and some nice file name.
-        send_file t.path, type: 'application/zip', disposition: 'attachment', filename: "experiment_#{@experiment_id}.zip"
-        # The temp file will be deleted some time...
-        t.close
+      # End of the block  automatically closes the file.
+      # Send it using the right mime type, with a download window and some nice file name.
+      send_file t.path, type: 'application/zip', disposition: 'attachment', filename: "experiment_#{@experiment_id}.zip"
+      # The temp file will be deleted some time...
+      t.close
     end
 
   end
