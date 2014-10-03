@@ -4,6 +4,30 @@ require 'json'
 
 class MongoActiveRecord
   include Mongo
+  include MongoActiveRecordUtils
+
+  attr_reader :attributes
+
+  @@ids_autoconvert = true
+
+  @conditions = {}
+  @options = {}
+
+  def self.conditions
+    @conditions
+  end
+
+  def self.conditions=(conds)
+    @conditions = conds
+  end
+
+  def self.options
+    @options
+  end
+
+  def self.options=(opts)
+    @options = opts
+  end
 
   def self.execute_raw_command_on(db, cmd)
     @@db.connection.db(db).command(cmd)
@@ -19,7 +43,7 @@ class MongoActiveRecord
 
     attributes.each do |parameter_name, parameter_value|
       #parameter_value = BSON::ObjectId(parameter_value) if parameter_name.end_with?("_id")
-      @attributes[parameter_name] = parameter_value
+      @attributes[parameter_name.to_s] = parameter_value
     end
   end
 
@@ -35,33 +59,43 @@ class MongoActiveRecord
     method_name = '_id' if method_name == 'id'
 
     if setter
-      @attributes[method_name] = args.first
-    elsif @attributes.include?(method_name)
-      @attributes[method_name]
+      set_attribute(method_name, args.first)
+    elsif attributes.include?(method_name)
+      get_attribute(method_name)
     else
       nil
       #super(method_name, *args, &block)
     end
   end
 
+  def set_attribute(attribute, value)
+    @attributes[attribute] = value
+  end
+
+  def get_attribute(attribute)
+    attributes[attribute]
+  end
+
   # save/update json document in db based on attributes
   # if this is new object instance - _id attribute will be added to attributes
   def save
-    collection = Object.const_get(self.class.name).send(:collection)
-
     if @attributes.include? '_id'
-      collection.update({'_id' => @attributes['_id']}, @attributes, {:upsert => true})
+      self.class.collection.update({'_id' => @attributes['_id']}, @attributes, {upsert: true})
     else
-      id = collection.save(@attributes)
+      id = self.class.collection.save(@attributes)
       @attributes['_id'] = id
     end
+  end
+
+  def save_if_exists
+    self.save if self.class.find_by_id(self.id)
   end
 
   def destroy
     return if not @attributes.include? '_id'
 
-    collection = Object.const_get(self.class.name).send(:collection)
-    collection.remove({ '_id' => @attributes['_id'] })
+    self.class.collection.remove({ '_id' => @attributes['_id'] })
+    @attributes.delete('_id')
   end
 
   def to_s
@@ -72,6 +106,17 @@ class MongoActiveRecord
       MongoActiveRecord - #{self.class.name} - Attributes - #{@attributes}\n
       eos
     end
+  end
+
+  def to_h
+    Hash[attributes.keys.map do |key|
+      value = self.send(key)
+      [key, (value.kind_of?(BSON::ObjectId) ? value.to_s : value)]
+    end]
+  end
+
+  def to_json
+    to_h.to_json
   end
 
   #### Class Methods ####
@@ -99,46 +144,36 @@ class MongoActiveRecord
       parameter_name = method_name.to_s.split('_')[3..-1].join('_')
 
       return self.find_all_by(parameter_name, args)
+
+    elsif (not instance_methods.include?(method_name.to_sym)) and (Array.instance_methods.include?(method_name.to_sym))
+
+      return to_a.send(method_name.to_sym, *args, &block)
     end
 
     super(method_name, *args, &block)
   end
 
   def self.all
-    collection = Object.const_get(name).send(:collection)
-    instances = []
-
-    collection.find({}).each do |attributes|
-      instances << Object.const_get(name).send(:new, attributes)
-    end
-
-    instances
+    where({}, {}).to_a
   end
 
   def self.destroy(selector)
-    collection = Object.const_get(name).send(:collection)
-
-    collection.remove(selector)
+    self.collection.remove(selector)
   end
 
   def self.find_by_query(query)
-    collection = Object.const_get(name).send(:collection)
-
-    attributes = collection.find_one(query)
+    attributes = self.collection.find_one(query)
 
     if attributes.nil?
       nil
     else
-      Object.const_get(name).new(attributes)
+      #Object.const_get(name).new(attributes)
+      self.new(attributes)
     end
   end
 
   def self.find_all_by_query(query, opts = {})
-    collection = Object.const_get(name).send(:collection)
-
-    collection.find(query, opts).map do |attributes|
-      Object.const_get(name).new(attributes)
-    end
+    self.where(query, opts).to_a
   end
 
   def self.find_by(parameter, value)
@@ -153,14 +188,12 @@ class MongoActiveRecord
       end
     end
 
-    collection = Object.const_get(name).send(:collection)
-
-    attributes = collection.find_one({ parameter => value })
+    attributes = self.collection.find_one({ parameter => value })
 
     if attributes.nil?
       nil
     else
-      Object.const_get(name).new(attributes)
+      self.new(attributes)
     end
   end
 
@@ -176,10 +209,8 @@ class MongoActiveRecord
       end
     end
 
-    collection = Object.const_get(name).send(:collection)
-
-    collection.find({parameter => value}).map do |attributes|
-      Object.const_get(name).new(attributes)
+    self.collection.find({parameter => value}).map do |attributes|
+      self.new(attributes)
     end
 
   end
@@ -192,13 +223,59 @@ class MongoActiveRecord
     end
   end
 
+  # chaining capabilities
+  def self.where(cond, opts = {})
+    mongo_class = self.deep_dup
+    mongo_class.conditions = @conditions.deep_dup || {}
+    mongo_class.options = @options.deep_dup || {}
+
+    cond.each do |key, value|
+      key = key.to_sym
+      key = :_id if key == :id
+
+      if key.to_s.ends_with?('_id')
+        value = BSON::ObjectId(value.to_s) if @@ids_autoconvert
+      end
+
+      mongo_class.conditions[key] = value
+    end
+
+    mongo_class.options.merge! opts
+
+    mongo_class
+  end
+
+  def self.to_a
+    results = self.collection.find(@conditions || {}, @options || {}).map do |attributes|
+      self.new(attributes)
+    end
+
+    @conditions = {}; @options = {}
+
+    results
+  end
+
+  def self.size
+    count
+  end
+
+  def self.count
+    results = self.collection.count(query: @conditions || {})
+
+    @conditions = {}; @options = {}
+
+    results
+  end
+
   # INITIALIZATION STUFF
 
   def self.connection_init(storage_manager_url, db_name)
     begin
       Rails.logger.debug("MongoActiveRecord initialized with URL '#{storage_manager_url}' and DB '#{db_name}'")
 
-      @@client = MongoClient.new(storage_manager_url.split(':')[0], storage_manager_url.split(':')[1], { connect_timeout: 5.0 })
+      @@client = MongoClient.new(storage_manager_url.split(':')[0], storage_manager_url.split(':')[1], {
+          connect_timeout: 5.0, pool_size: 4, pool_timeout: 10.0
+      })
       @@db = @@client[db_name]
       @@grid = Mongo::Grid.new(@@db)
 
@@ -212,6 +289,12 @@ class MongoActiveRecord
   end
 
   # UTILS
+
+  def self.parse_json_if_string(attribute)
+    define_method attribute do
+      Utils::parse_json_if_string(get_attribute(attribute.to_s))
+    end
+  end
 
   def self.next_sequence
     self.get_next_sequence(self.collection_name)

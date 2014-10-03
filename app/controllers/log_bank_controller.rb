@@ -17,7 +17,8 @@ class LogBankController < ApplicationController
 
   def get_simulation_output
     # just stream previously save binary data from the backend using included module
-    file_object = @log_bank.get_simulation_output(@experiment_id, @simulation_id)
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_id: @simulation_id).first
+    file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
       render inline: 'Required file not found', status: 404
@@ -36,7 +37,8 @@ class LogBankController < ApplicationController
   end
 
   def get_simulation_output_size
-    file_object = @log_bank.get_simulation_output(@experiment_id, @simulation_id)
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_id: @simulation_id).first
+    file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
       render inline: 'Required file not found', status: 404
@@ -71,23 +73,14 @@ class LogBankController < ApplicationController
 
       # Give the path of the temp file to the zip outputstream, it won't try to open it as an archive.
       Zip::ZipOutputStream.open(t.path) do |zos|
-        @log_bank.get_output_files(@experiment_id).each do |file_doc|
-          file_object = @log_bank.get_file_object(file_doc['output_file_id'])
+        SimulationOutputRecord.where(experiment_id: @experiment_id).each do |sim_record|
+          file_object = sim_record.file_object
 
-          unless file_object.nil?
-            if file_doc.include?('simulation_id')
-              # Create a new entry with some arbitrary name
-              zos.put_next_entry("experiment_#{@experiment_id}/simulation_#{file_doc['simulation_id']}.tar.gz")
-              # Add the contents of the file, don't read the stuff likewise if its binary, instead use direct IO
-              zos.print file_object.read.force_encoding('UTF-8')
-
-            elsif file_doc.include?('simulation_stdout')
-              # Create a new entry with some arbitrary name
-              zos.put_next_entry("experiment_#{@experiment_id}/simulation_#{file_doc['simulation_stdout']}_stdout.txt")
-              # Add the contents of the file, don't read the stuff likewise if its binary, instead use direct IO
-              zos.print file_object.read.force_encoding('UTF-8')
-            end
-
+          unless file_object.nil? or sim_record.file_object_name.nil?
+            # Create a new entry with some arbitrary name
+            zos.put_next_entry("experiment_#{@experiment_id}/#{sim_record.file_object_name}")
+            # Add the contents of the file, don't read the stuff likewise if its binary, instead use direct IO
+            zos.print file_object.read.force_encoding('UTF-8')
           end
         end
       end
@@ -124,10 +117,9 @@ class LogBankController < ApplicationController
     render inline: 'DELETE experiment action completed'
   end
 
-
   def get_simulation_stdout
-    # just stream previously save binary data from the backend using included module
-    file_object = @log_bank.get_simulation_stdout(@experiment_id, @simulation_id)
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_id).first
+    file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
       render inline: 'Required file not found', status: 404
@@ -146,7 +138,8 @@ class LogBankController < ApplicationController
   end
 
   def get_simulation_stdout_size
-    file_object = @log_bank.get_simulation_stdout(@experiment_id, @simulation_id)
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_id).first
+    file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
       render inline: 'Required file not found', status: 404
