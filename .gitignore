@@ -62,3 +62,5 @@ scalarm_db_config_data
 config/thin.yml
 config/scalarm.yml
 config/secrets.yml
+
+log/**

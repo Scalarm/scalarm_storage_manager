@@ -41,13 +41,19 @@ class ScalarmUser < MongoActiveRecord
   end
 
   def self.authenticate_with_certificate(dn)
-    user = ScalarmUser.find_by_dn(dn)
+    user = (ScalarmUser.find_by_dn(dn) or
+        ScalarmUser.find_by_dn(ScalarmUser.browser_dn_to_plgoid_dn(dn)))
 
     if user.nil?
       raise "Authentication failed: user with DN = #{dn} not found"
     end
 
     user
+  end
+
+  # A hack to support PL-Grid OpenID returned DN's in database
+  def self.browser_dn_to_plgoid_dn(dn)
+    dn.split('/').slice(1..-1).reverse.join(',')
   end
 
 end
