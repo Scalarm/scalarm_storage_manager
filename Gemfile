@@ -17,6 +17,8 @@ gem 'newrelic_rpm'
 
 gem 'sys-filesystem'
 
+gem 'ruby-openid'
+
 # Use SCSS for stylesheets
 #gem 'sass-rails', '~> 4.0.0'
 
