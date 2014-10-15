@@ -76,27 +76,29 @@ The "secrets.yml" file is a standard configuration file added in Rails 4 to have
 an application. We used this approach in our Scalarm platform. Experiment Manager stores access data to Information Service in this file:
 
 ```
-development:
-  secret_key_base: 'd132fd22bc612e157d722e980c4b0525b938f225f9f7f66ea'
+default: &DEFAULT
   information_service_url: "localhost:11300"
-  information_service_user: scalarm
-  information_service_pass: scalarm
+  secret_key_base: "<you need to change this - with $rake secret>"
+  information_service_user: "<set to custom name describing your Scalarm instance>"
+  information_service_pass: "<generate strong password instead of this>"
   # if you want to communicate through HTTP
   information_service_development: true
+  # if you installed and want to use scalarm custom load balancer set to false
+  disable_load_balancer_registration: true
+
+development:
+  <<: *DEFAULT
 
 test:
-  secret_key_base: 'd132fd22bc612e157d722e980c4b0525b938f225f9f7f66ea'
-  information_service_url: "localhost:11300"
-  information_service_user: scalarm
-  information_service_pass: scalarm
-  # if you want to communicate through HTTP
-  information_service_development: true
+  <<: *DEFAULT
 
 production:
   secret_key_base: <%= ENV["SECRET_KEY_BASE"] %>
-  information_service_url: <%= ENV["INFORMATION_SERVICE_URL"] %>
-  information_service_user: <%= ENV["INFORMATION_SERVICE_LOGIN"] %>
-  information_service_pass: <%= ENV["INFORMATION_SERVICE_PASSWORD"] %>
+  information_service_url: "<%= ENV["INFORMATION_SERVICE_URL"] %>"
+  information_service_user: "<%= ENV["INFORMATION_SERVICE_LOGIN"] %>"
+  information_service_pass: "<%= ENV["INFORMATION_SERVICE_PASSWORD"] %>"
+  # if you installed and want to use scalarm custom load balancer set to false
+  disable_load_balancer_registration: true
 ```
 
 In the second file, 'scalarm.yml', you put the following information in the YAML format:

@@ -13,6 +13,7 @@ Bundler.require(:default, Rails.env)
 module ScalarmStorageManager
   class Application < Rails::Application
     config.session_threshold = 30*60 # max session time in seconds - currently it is 30 minutes
+    config.force_ssl = (Rails.env == 'production') #this sets Secure attribute for cookies
 
     # Settings in config/environments/* take precedence over those specified here.
     # Application configuration should go into files in config/initializers
