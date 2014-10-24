@@ -3,6 +3,7 @@
 # - @current_user or @sm_user to scalarm user or simulation manager temp pass respectively
 # - @session_auth to true if this is session-based authentication
 module ScalarmAuthentication
+  require 'openid'
 
   # the main authentication function + session management
   def authenticate
