@@ -8,7 +8,9 @@
 
 class SimulationOutputRecord < MongoActiveRecord
 
-  @@ids_autoconvert = false
+  def self.ids_auto_convert
+    false
+  end
 
   def self.collection_name
     @@config['binaries_collection_name']
