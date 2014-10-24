@@ -8,10 +8,12 @@ class MongoActiveRecord
 
   attr_reader :attributes
 
-  @@ids_autoconvert = true
-
   @conditions = {}
   @options = {}
+
+  def self.ids_auto_convert
+    true
+  end
 
   def self.conditions
     @conditions
@@ -74,6 +76,10 @@ class MongoActiveRecord
 
   def get_attribute(attribute)
     attributes[attribute]
+  end
+
+  def _delete_attribute(attribute)
+    @attributes.delete(attribute)
   end
 
   # save/update json document in db based on attributes
@@ -233,8 +239,10 @@ class MongoActiveRecord
       key = key.to_sym
       key = :_id if key == :id
 
-      if key.to_s.ends_with?('_id')
-        value = BSON::ObjectId(value.to_s) if @@ids_autoconvert
+      if key == :_id
+        value = BSON::ObjectId(value.to_s)
+      elsif key.to_s.ends_with?('_id') and self.ids_auto_convert
+        value = Utils::to_bson_if_string(value)
       end
 
       mongo_class.conditions[key] = value
