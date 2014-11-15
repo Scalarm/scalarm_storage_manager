@@ -19,6 +19,9 @@ module ScalarmAuthentication
 
       when certificate_provided?
         authenticate_with_certificate
+
+      when token_provided?(params)
+        authenticate_with_token(params[:token])
     end
 
     if @current_user.nil? and @sm_user.nil?
@@ -28,12 +31,29 @@ module ScalarmAuthentication
     end
   end
 
+  def authenticate_with_token(token)
+    @user_session = ScalarmAuthentication.find_session_by_token(token)
+    if @user_session
+      @user_session.tokens = @user_session.tokens.delete(token)
+      validate_and_use_session
+    else
+      Rails.logger.warn("Invalid token provided for login: #{token}")
+    end
+  end
+
+  def self.find_session_by_token(token)
+    UserSession.where(tokens: token).first
+  end
+
   def authenticate_with_session
     Rails.logger.debug("[authentication] using session: #{session[:user]}")
     session_id = BSON::ObjectId(session[:user].to_s)
 
     @user_session = UserSession.find_by_session_id(session_id)
+    validate_and_use_session
+  end
 
+  def validate_and_use_session
     if (not @user_session.nil?) and @user_session.valid?
       Rails.logger.debug("[authentication] scalarm user session exists and its valid")
       @current_user = ScalarmUser.find_by_id(session_id)
@@ -42,6 +62,10 @@ module ScalarmAuthentication
       flash[:error] = t('session.expired')
       Rails.logger.debug("[authentication] scalarm user session doesnt exist and its invalid")
     end
+  end
+
+  def token_provided?(params)
+    !!params[:token]
   end
 
   def certificate_provided?
