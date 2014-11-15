@@ -56,7 +56,7 @@ module ScalarmAuthentication
   def validate_and_use_session
     if (not @user_session.nil?) and @user_session.valid?
       Rails.logger.debug("[authentication] scalarm user session exists and its valid")
-      @current_user = ScalarmUser.find_by_id(@user_session.id)
+      @current_user = ScalarmUser.find_by_id(@user_session.session_id)
       @session_auth = true unless @current_user.blank?
     else
       flash[:error] = t('session.expired')
