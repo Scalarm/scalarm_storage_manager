@@ -34,7 +34,8 @@ module ScalarmAuthentication
   def authenticate_with_token(token)
     @user_session = ScalarmAuthentication.find_session_by_token(token)
     if @user_session
-      @user_session.tokens = @user_session.tokens.delete(token)
+      @user_session.tokens.delete(token)
+      @user_session.save
       validate_and_use_session
     else
       Rails.logger.warn("Invalid token provided for login: #{token}")
