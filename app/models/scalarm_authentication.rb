@@ -27,7 +27,7 @@ module ScalarmAuthentication
     if @current_user.nil? and @sm_user.nil?
       authentication_failed
     else
-      @user_session = UserSession.create_and_update_session(session[:user].to_s) if @sm_user.nil?
+      @user_session = UserSession.create_and_update_session(@current_user.id.to_s) if @sm_user.nil?
     end
   end
 
