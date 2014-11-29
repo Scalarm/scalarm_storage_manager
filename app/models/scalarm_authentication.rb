@@ -14,14 +14,14 @@ module ScalarmAuthentication
       when (not session[:user].blank?)
         authenticate_with_session
 
+      when token_provided?(params)
+        authenticate_with_token(params[:token])
+
       when password_provided?
         authenticate_with_password
 
       when certificate_provided?
         authenticate_with_certificate
-
-      when token_provided?(params)
-        authenticate_with_token(params[:token])
     end
 
     if @current_user.nil? and @sm_user.nil?
