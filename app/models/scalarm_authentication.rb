@@ -11,11 +11,12 @@ module ScalarmAuthentication
     @current_user = nil; @sm_user = nil; @session_auth = false; @user_session = nil
 
     case true
-      when (not session[:user].blank?)
-        authenticate_with_session
-
       when token_provided?(params)
         authenticate_with_token(params[:token])
+
+
+      when (not session[:user].blank?)
+        authenticate_with_session
 
       when password_provided?
         authenticate_with_password
