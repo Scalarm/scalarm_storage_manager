@@ -12,7 +12,30 @@ class LogBankController < ApplicationController
   @@experiment_size_threshold = 1024*1024*1024*300 # 300 MB
 
   def status
-    render inline: "Hello world from Scalarm LogBank, it's #{Time.now} at the server!\n"
+    tests = Utils.parse_json_if_string(params[:tests])
+
+    status = 'ok'
+    message = ''
+
+    unless tests.nil?
+      failed_tests = tests.select { |t_name| not send("status_test_#{t_name}") }
+
+      unless failed_tests.empty?
+        status = 'failed'
+        message = "Failed tests: #{failed_tests.join(', ')}"
+      end
+    end
+
+    http_status = (status == 'ok' ? :ok : :internal_server_error)
+
+    respond_to do |format|
+      format.html do
+        render text: message, status: http_status
+      end
+      format.json do
+        render json: {status: status, message: message}, status: http_status
+      end
+    end
   end
 
   def get_simulation_output
@@ -228,6 +251,12 @@ class LogBankController < ApplicationController
     unless experiment.owned_by?(@current_user) 
       render inline: '', status: 401
     end
+  end
+
+  # --- Status tests ---
+
+  def status_test_database
+    MongoActiveRecord.available?
   end
 
 end
