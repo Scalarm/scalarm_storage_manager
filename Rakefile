@@ -9,6 +9,7 @@ include Mongo
 # for example lib/tasks/capistrano.rake, and they will automatically be available to Rake.
 
 require File.expand_path('../config/application', __FILE__)
+require File.expand_path('../app/models/load_balancer_registration.rb', __FILE__)
 
 ScalarmStorageManager::Application.load_tasks
 
@@ -30,11 +31,11 @@ LOCAL_IP = UDPSocket.open {|s| begin s.connect("64.233.187.99", 1); s.addr.last 
 
 namespace :service do
   task :start => [:environment, 'db_instance:start', 'db_config_service:start', 'log_bank:start' ] do
-
+    load_balancer_registration
   end
 
   task :stop => [:environment, 'db_config_service:stop', 'db_instance:stop', 'log_bank:stop' ] do
-
+    load_balancer_unregistration
   end
 end
 
@@ -257,6 +258,18 @@ namespace :db_router do
   end
 end
 
+namespace :load_balancer do
+  desc 'Registration to load balancer'
+  task :register do
+    load_balancer_registration
+  end
+
+  desc 'Unregistration from load balancer'
+  task :unregister do
+    load_balancer_unregistration
+  end
+end
+
 def clear_instance(config)
   puts "rm -rf #{DB_BIN_PATH}/#{config['db_instance_dbpath']}/*"
   puts %x[rm -rf #{DB_BIN_PATH}/#{config['db_instance_dbpath']}/*]
@@ -376,4 +389,20 @@ def start_config_cmd(config)
        "--dbpath #{config['db_config_dbpath']} --logpath #{config['db_config_logpath']} " +
        "--fork #{log_append} #{mb_available < 5120 ? '--smallfiles' : ''}"
   ].join(';')
+end
+
+def load_balancer_registration
+  unless Rails.env.test? or Rails.application.secrets.disable_load_balancer_registration
+    LoadBalancerRegistration.register
+  else
+    puts 'disable_load_balancer_registration option is active'
+  end
+end
+
+def load_balancer_unregistration
+  unless Rails.env.test? or Rails.application.secrets.disable_load_balancer_registration
+    LoadBalancerRegistration.unregister
+  else
+    puts 'disable_load_balancer_registration option is active'
+  end
 end
