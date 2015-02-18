@@ -35,7 +35,7 @@ namespace :service do
   end
 
   task :stop => [:environment, 'db_config_service:stop', 'db_instance:stop', 'log_bank:stop' ] do
-    load_balancer_unregistration
+    load_balancer_deregistration
   end
 end
 
@@ -264,9 +264,9 @@ namespace :load_balancer do
     load_balancer_registration
   end
 
-  desc 'Unregistration from load balancer'
-  task :unregister do
-    load_balancer_unregistration
+  desc 'Deregistration from load balancer'
+  task :deregister do
+    load_balancer_deregistration
   end
 end
 
@@ -399,9 +399,9 @@ def load_balancer_registration
   end
 end
 
-def load_balancer_unregistration
+def load_balancer_deregistration
   unless Rails.env.test? or Rails.application.secrets.disable_load_balancer_registration
-    LoadBalancerRegistration.unregister
+    LoadBalancerRegistration.deregister
   else
     puts 'disable_load_balancer_registration option is active'
   end
