@@ -89,7 +89,7 @@ default: &DEFAULT
       # if you use load balancer on http you need to specify this
       #development: true
       # if you want to run and register service in load balancer on other port than default
-      #port: "3000"
+      #port: "20000"
 
 development:
   <<: *DEFAULT
