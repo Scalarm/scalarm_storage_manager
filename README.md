@@ -81,10 +81,15 @@ default: &DEFAULT
   secret_key_base: "<you need to change this - with $rake secret>"
   information_service_user: "<set to custom name describing your Scalarm instance>"
   information_service_pass: "<generate strong password instead of this>"
-  # if you want to communicate through HTTP
-  information_service_development: true
-  # if you installed and want to use scalarm custom load balancer set to false
-  disable_load_balancer_registration: true
+  load_balancer:
+      # if you installed and want to use scalarm custom load balancer set to false
+      disable_registration: true
+      # if you use load balancer you need to specify multicast address (to receive load balancer address)
+      #multicast_address: "224.1.2.3:8000"
+      # if you use load balancer on http you need to specify this
+      #development: true
+      # if you want to run and register service in load balancer on other port than default
+      #port: "3000"
 
 development:
   <<: *DEFAULT
@@ -98,7 +103,8 @@ production:
   information_service_user: "<%= ENV["INFORMATION_SERVICE_LOGIN"] %>"
   information_service_pass: "<%= ENV["INFORMATION_SERVICE_PASSWORD"] %>"
   # if you installed and want to use scalarm custom load balancer set to false
-  disable_load_balancer_registration: true
+  load_balancer:  
+    disable_registration: true
 ```
 
 In the second file, 'scalarm.yml', you put the following information in the YAML format:
