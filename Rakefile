@@ -34,7 +34,11 @@ namespace :service do
     load_balancer_registration
   end
 
-  task :stop => [:environment, 'db_config_service:stop', 'db_instance:stop', 'log_bank:stop' ] do
+  task :start_single => [:environment, 'db_instance:start_single', 'log_bank:start' ] do
+    load_balancer_registration
+  end
+
+  task :stop_single => [:environment, 'db_instance:stop_single', 'log_bank:stop' ] do
     load_balancer_deregistration
   end
 end
@@ -143,6 +147,64 @@ namespace :db_instance do
       puts "Fatal error while deregistering db instance '#{err}': #{msg}"
     end
   end
+
+  desc 'Start a single DB instance in a non-sharded mode'
+  task :start_single => :environment do
+    # 1. read the config
+    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+
+    # 2. create a db data folder if it doesn't exist
+    unless File.exist?(File.join(DB_BIN_PATH, config['db_instance_dbpath']))
+      %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_instance_dbpath'])}]
+    end
+
+    # 3. start and a single instance without sharding on a db_router port
+    log_append = File.exist?(config['db_instance_logpath']) ? '--logappend' : ''
+
+    stat = Sys::Filesystem.stat('/')
+    mb_available = stat.block_size * stat.blocks_available / 1024 / 1024
+
+    start_instance_cmd = ["cd #{DB_BIN_PATH}",
+      "./mongod --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_router_port']} " +
+        "--dbpath #{config['db_instance_dbpath']} --logpath #{config['db_instance_logpath']} " +
+        "--cpu --quiet --rest --fork #{log_append} #{mb_available < 5120 ? '--smallfiles' : ''}"
+    ].join(';')
+
+    Rails.logger.debug(start_instance_cmd)
+    Rails.logger.debug(%x[#{start_instance_cmd}])
+
+    # 4. register the instance as a db_router - then Experiment managers should connect to it
+    information_service = InformationService.new
+    err, msg = information_service.register_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+
+    if err
+      puts "Fatal error while registering a db instance in a single mode '#{err}': #{msg}"
+    end
+    # TODO we should probably to something here
+  end
+
+  desc 'Stop a DB instance started in a non-sharded mode'
+  task :stop_single => :environment do
+    # 1. reading the config
+    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+
+    # 2. unregistering the instance from the routers' table
+    information_service = InformationService.new
+    err, msg = information_service.deregister_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+    if err
+      puts "Fatal error while deregistering db instance '#{err}': #{msg}"
+      # TODO we should probably to something here
+    end
+
+    # 3. stopping the mongod process
+    puts 'Killing the service process'
+    proc_name = "./mongod .* --port #{config['db_router_port']}"
+    out = %x[ps aux | grep "#{proc_name}"]
+    instance_proc_list = out.split("\n").delete_if { |line| line.include? 'grep' }
+
+    kill_processes_from_list(instance_proc_list)
+  end
+
 end
 
 namespace :db_config_service do
