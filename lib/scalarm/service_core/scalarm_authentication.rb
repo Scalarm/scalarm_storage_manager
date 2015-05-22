@@ -48,7 +48,8 @@ module Scalarm::ServiceCore
       if @current_user.nil? and @sm_user.nil?
         authentication_failed
       elsif @sm_user.nil? and not session[:user].nil?
-        @user_session = UserSession.create_and_update_session(session[:user], session[:uuid])
+        @user_session = UserSession.
+            create_and_update_session(session[:user], session[:uuid])
       else
         Logger.debug("[authentication] one-time authentication (without session saving)")
       end

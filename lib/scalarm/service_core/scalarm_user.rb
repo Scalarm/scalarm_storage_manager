@@ -3,7 +3,11 @@
 # dn => distinguished user name from certificate
 # login => last CN attribute value from dn
 
+require 'active_support/core_ext/numeric/time'
+
 require 'scalarm/database/model/scalarm_user'
+
+require_relative 'exceptions'
 
 module Scalarm::ServiceCore
   class ScalarmUser < Scalarm::Database::Model::ScalarmUser
@@ -12,8 +16,8 @@ module Scalarm::ServiceCore
       user = ScalarmUser.find_by_login(login.to_s)
 
       if user.nil? || user.password_salt.nil? || user.password_hash.nil?  || Digest::SHA256.hexdigest(password + user.password_salt) != user.password_hash
-        # TODO: raise some bad login or pass exception, then rescue it in controller in service
-        raise "Bad login or password"
+        raise BadLoginOrPasswordError.new
+        # TODO: above error should cause display of below message in services
         #raise I18n.t('user_controller.login.bad_login_or_pass')
       end
 
@@ -22,14 +26,27 @@ module Scalarm::ServiceCore
 
     def self.authenticate_with_certificate(dn)
       # backward-compatibile: there are some dn's formatted by PL-Grid OpenID in database - try to convert
+      # TODO this conversion will be removed some day
       user = (ScalarmUser.find_by_dn(dn.to_s) or
-          ScalarmUser.find_by_dn(PlGridOpenID.browser_dn_to_plgoid_dn(dn)))
+          ScalarmUser.find_by_dn(browser_dn_to_plgoid_dn(dn)))
 
       if user.nil?
-        raise "Authentication failed: user with DN = #{dn} not found"
+        raise AuthenticationError.new "Authentication failed: user with DN = #{dn} not found"
       end
 
       user
+    end
+
+    ##
+    # Utility: convert DN from PL-Grid OpenID to web browser format
+    def self.plgoid_dn_to_browser_dn(dn)
+      '/' + dn.split(',').reverse.join('/')
+    end
+
+    ##
+    # Utility: convert DN web browser format to PL-Grid OpenID format
+    def self.browser_dn_to_plgoid_dn(dn)
+      dn.split('/').slice(1..-1).reverse.join(',')
     end
 
     ##
@@ -40,18 +57,26 @@ module Scalarm::ServiceCore
     # [proxy] GP::Proxy or String containing proxy certificate
     # [verify] If true, check if proxy is valid (default)
     def self.authenticate_with_proxy(proxy, verify=true)
-      proxy = if proxy.is_a?(Scalarm::ServiceCore::GridProxy::Proxy)
+      proxy = if proxy.class <= Scalarm::ServiceCore::GridProxy::Proxy
                 proxy
               else
                 Scalarm::ServiceCore::GridProxy::Proxy.new(proxy)
               end
 
-      ScalarmUser.where(login: proxy.username).first if !verify or proxy.valid_for_plgrid?
+      if !verify or proxy.valid_for_plgrid?
+        ScalarmUser.where(proxy.username).first
+      else
+        nil
+      end
     end
+
+    MAX_CREDENTIALS_FAILURE_TRIES = 2
+    BAN_TIME = 5.minutes
 
     def banned_infrastructure?(infrastructure_name)
       if credentials_failed and credentials_failed.include?(infrastructure_name) and
-          credentials_failed[infrastructure_name].count >= 2 and (compute_ban_end(credentials_failed[infrastructure_name].last) > Time.now)
+          credentials_failed[infrastructure_name].count >= MAX_CREDENTIALS_FAILURE_TRIES and
+          (compute_ban_end(credentials_failed[infrastructure_name].last) > Time.now)
         true
       else
         false
@@ -79,7 +104,7 @@ module Scalarm::ServiceCore
     private
 
     def compute_ban_end(start_time)
-      start_time + 5.minutes
+      start_time + BAN_TIME
     end
 
   end
