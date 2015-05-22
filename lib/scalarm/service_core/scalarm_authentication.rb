@@ -77,7 +77,7 @@ module Scalarm::ServiceCore
         session[:user] = ScalarmUser.authenticate_with_certificate(cert_dn).id.to_s
         session[:uuid] = SecureRandom.uuid
         @current_user = ScalarmUser.find_by_id(session[:user].to_s)
-      rescue Exception => e
+      rescue => e
         @current_user = nil
         flash[:error] = e.to_s
       end
@@ -105,7 +105,7 @@ module Scalarm::ServiceCore
     end
 
     def use_proxy_auth?
-      not Configuration.proxy_cert_ca.nil?
+      not Configuration.proxy_ca.nil?
     end
 
     def proxy_provided?

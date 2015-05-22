@@ -1,0 +1,7 @@
+Default CA certificates to verify users' proxy certificates.
+
+Source: http://plgrid-sca.wcss.wroc.pl/
+-> http://plgrid-sca.wcss.wroc.pl/ca.pem
+-> http://plgrid-sca.wcss.wroc.pl/crl.pem
+
+plgrid-crl.pem should be updated periodically with update_crl.sh script!

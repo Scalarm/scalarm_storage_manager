@@ -1,0 +1,2 @@
+# prevent accidentially valid proxy commiting
+proxy_valid.pem

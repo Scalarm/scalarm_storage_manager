@@ -21,6 +21,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require_relative 'exceptions'
+
 module Scalarm::ServiceCore::GridProxy
   class Proxy
     CERT_START = '-----BEGIN CERTIFICATE-----'
@@ -50,29 +52,29 @@ module Scalarm::ServiceCore::GridProxy
 
     def verify!(ca_cert_payload, crl_payload = nil)
       now = Time.now
-      raise GP::ProxyValidationError.new('Proxy is not valid yet') if now < proxycert.not_before
-      raise GP::ProxyValidationError.new('Proxy expired') if now > proxycert.not_after
-      raise GP::ProxyValidationError.new('Usercert not signed with trusted certificate') unless ca_cert_payload && usercert.verify(cert(ca_cert_payload).public_key)
-      raise GP::ProxyValidationError.new('Proxy not signed with user certificate') unless proxycert.verify(usercert.public_key)
+      raise ProxyValidationError.new('Proxy is not valid yet') if now < proxycert.not_before
+      raise ProxyValidationError.new('Proxy expired') if now > proxycert.not_after
+      raise ProxyValidationError.new('Usercert not signed with trusted certificate') unless ca_cert_payload && usercert.verify(cert(ca_cert_payload).public_key)
+      raise ProxyValidationError.new('Proxy not signed with user certificate') unless proxycert.verify(usercert.public_key)
 
       proxycert_issuer = proxycert.issuer.to_s
       proxycert_subject = proxycert.subject.to_s
 
-      raise GP::ProxyValidationError.new('Proxy and user cert mismatch') unless proxycert_issuer == usercert.subject.to_s
-      raise GP::ProxyValidationError.new("Proxy subject must begin with the issuer") unless proxycert_subject.to_s.index(proxycert_issuer) == 0
-      raise GP::ProxyValidationError.new("Couldn't find '/CN=' in DN, not a proxy") unless proxycert_subject.to_s[proxycert_issuer.size, proxycert_subject.to_s.size].to_s.include?('/CN=')
+      raise ProxyValidationError.new('Proxy and user cert mismatch') unless proxycert_issuer == usercert.subject.to_s
+      raise ProxyValidationError.new("Proxy subject must begin with the issuer") unless proxycert_subject.to_s.index(proxycert_issuer) == 0
+      raise ProxyValidationError.new("Couldn't find '/CN=' in DN, not a proxy") unless proxycert_subject.to_s[proxycert_issuer.size, proxycert_subject.to_s.size].to_s.include?('/CN=')
 
-      raise GP::ProxyValidationError.new("Private proxy key missing") unless proxykey
-      raise GP::ProxyValidationError.new("Private proxy key and cert mismatch") unless proxycert.check_private_key(proxykey)
+      raise ProxyValidationError.new("Private proxy key missing") unless proxykey
+      raise ProxyValidationError.new("Private proxy key and cert mismatch") unless proxycert.check_private_key(proxykey)
 
-      raise GP::ProxyValidationError.new("User cert was revoked") if crl_payload != nil and revoked? crl_payload
+      raise ProxyValidationError.new("User cert was revoked") if crl_payload != nil and revoked? crl_payload
     end
 
     def valid?(ca_cert_payload, crl_payload = nil)
       begin
         verify! ca_cert_payload, crl_payload
         true
-      rescue GP::ProxyValidationError => e
+      rescue ProxyValidationError => e
         false
       end
     end

@@ -1,10 +1,3 @@
-require_relative "grid-proxy/version"
-require_relative "grid-proxy/proxy"
-require_relative "grid-proxy/exceptions"
-
-
-
-
 ##
 # Scalarm extensions for GridProxy
 #
@@ -33,11 +26,19 @@ require_relative "grid-proxy/exceptions"
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require_relative 'grid_proxy/proxy'
+require_relative 'grid_proxy/exceptions'
+
+require_relative 'logger'
+require_relative 'configuration'
+
 module Scalarm::ServiceCore::GridProxy
   class Proxy
     def verify_for_plgrid!
-      crl = nil # TODO CRL
-      ca = PROXY_CERT_CA
+      crl = Scalarm::ServiceCore::Configuration.proxy_crl
+      ca = Scalarm::ServiceCore::Configuration.proxy_ca
+      Scalarm::ServiceCore::Logger.warn 'Proxy CRL not loaded' if crl.nil?
+      raise 'Proxy CA not loaded' if ca.nil?
       verify!(ca, crl)
     end
 
@@ -45,7 +46,7 @@ module Scalarm::ServiceCore::GridProxy
       begin
         verify_for_plgrid!
         true
-      rescue GP::ProxyValidationError => e
+      rescue GridProxy::ProxyValidationError => e
         false
       end
     end

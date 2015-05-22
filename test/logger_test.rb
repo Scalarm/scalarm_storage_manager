@@ -6,7 +6,7 @@ require 'scalarm/service_core/logger'
 class LoggerTest < MiniTest::Test
 
   def setup
-    Logger.clear_logger
+    Scalarm::ServiceCore::Logger.clear_logger
   end
 
   def test_delegation
@@ -17,16 +17,16 @@ class LoggerTest < MiniTest::Test
       expects(:error).with('d').once
     end
 
-    Logger.set_logger(logger)
+    Scalarm::ServiceCore::Logger.set_logger(logger)
 
-    Logger.info 'a'
-    Logger.debug 'b'
-    Logger.warn 'c'
-    Logger.error 'd'
+    Scalarm::ServiceCore::Logger.info 'a'
+    Scalarm::ServiceCore::Logger.debug 'b'
+    Scalarm::ServiceCore::Logger.warn 'c'
+    Scalarm::ServiceCore::Logger.error 'd'
   end
 
   def test_empty
-    Logger.info 'a'
+    Scalarm::ServiceCore::Logger.info 'a'
   end
 
   def test_clear_logger
@@ -34,10 +34,10 @@ class LoggerTest < MiniTest::Test
       expects(:info).never
     end
 
-    Logger.set_logger(logger)
-    Logger.clear_logger
+    Scalarm::ServiceCore::Logger.set_logger(logger)
+    Scalarm::ServiceCore::Logger.clear_logger
 
-    Logger.info 'a'
+    Scalarm::ServiceCore::Logger.info 'a'
   end
 
 end
