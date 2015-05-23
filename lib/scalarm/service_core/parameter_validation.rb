@@ -50,7 +50,7 @@ module Scalarm::ServiceCore
           when Symbol
             send(f, param_name, value) unless f == :optional # [:optional].include? f
           else
-            Rails.logger.error("Not supported validator type: #{f} -> #{f.class}")
+            Logger.error("Not supported validator type: #{f} -> #{f.class}")
         end
       end
     end

@@ -8,7 +8,11 @@
 # [session[:uuid]] to unique session id (for separate browser/clients)
 require 'active_support/concern'
 
+require 'scalarm/database/model/simulation_manager_temp_password'
+
 require_relative 'grid_proxy'
+
+require_relative 'scalarm_user'
 
 module Scalarm::ServiceCore
   module ScalarmAuthentication
@@ -90,7 +94,7 @@ module Scalarm::ServiceCore
 
     def authenticate_with_password
       authenticate_or_request_with_http_basic do |login, password|
-        temp_pass = SimulationManagerTempPassword.find_by_sm_uuid(login.to_s)
+        temp_pass = Scalarm::Database::Model::SimulationManagerTempPassword.find_by_sm_uuid(login.to_s)
         unless temp_pass.nil?
           Logger.debug("[authentication] SM using uuid: '#{login}'")
 
