@@ -92,7 +92,7 @@ module Scalarm::ServiceCore
     end
 
     def self.get_anonymous_user
-      @anonymous_user ||= ScalarmUser.find_by_login(Utils::load_config['anonymous_login'].to_s)
+      @anonymous_user ||= ScalarmUser.find_by_login(Configuration.anonymous_login.to_s)
     end
 
     def destroy_unused_credentials

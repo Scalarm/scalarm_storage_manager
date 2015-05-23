@@ -26,6 +26,9 @@ module Scalarm::ServiceCore
     cattr_reader :proxy_ca
     cattr_reader :proxy_crl
 
+    cattr_accessor :anonymous_login
+    cattr_accessor :anonymous_password
+
   end
 
 end

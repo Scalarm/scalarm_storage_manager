@@ -7,6 +7,7 @@ require 'scalarm/service_core/logger'
 require 'scalarm/service_core/test_utils/db_helper'
 
 require 'scalarm/service_core/scalarm_user'
+require 'scalarm/service_core/configuration'
 
 class ScalarmUserTest < MiniTest::Test
   extend ActiveSupport::Testing::Declarative
@@ -103,6 +104,17 @@ class ScalarmUserTest < MiniTest::Test
 
   test 'anonymous user should be nil without setting' do
     assert_nil Scalarm::ServiceCore::ScalarmUser.get_anonymous_user
+  end
+
+  test 'anonoumous user login could be got from configuration' do
+    login = 'my_login'
+
+    @user.login = login
+    @user.save
+
+    Scalarm::ServiceCore::Configuration.anonymous_login = login
+
+    assert_equal @user.id, Scalarm::ServiceCore::ScalarmUser.get_anonymous_user.id
   end
 
 end
