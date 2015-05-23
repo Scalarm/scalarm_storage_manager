@@ -8,7 +8,11 @@ module Scalarm::ServiceCore::TestUtils
       Scalarm::Database::MongoActiveRecord.set_encryption_key('db_key')
 
       unless Scalarm::Database::MongoActiveRecord.connected?
-        connection_init = Scalarm::Database::MongoActiveRecord.connection_init('localhost', database_name)
+        begin
+          connection_init = Scalarm::Database::MongoActiveRecord.connection_init('localhost', database_name)
+        rescue Mongo::ConnectionFailure => e
+          skip "Connection to database failed: #{e.to_s}"
+        end
         skip 'Connection to database failed' unless connection_init
         #raise StandardError.new('Connection to database failed') unless connection_init
         puts "Connecting to database #{database_name}"
