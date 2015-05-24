@@ -22,11 +22,9 @@
 #shared_with: a list of user ids with whom this experiment is shared
 #replication_level: integer value denoting how many times each simulation run should be repeated
 
-class Experiment < MongoActiveRecord
+require 'scalarm/database/model/experiment'
 
-  def self.collection_name
-    'experiments'
-  end
+class Experiment < Scalarm::Database::Model::Experiment
 
   def shared_with?(user)
     (not self.shared_with.nil?) and self.shared_with.include?(user.id)

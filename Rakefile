@@ -57,7 +57,7 @@ namespace :db_instance do
     Rails.logger.debug(start_instance_cmd(config))
     Rails.logger.debug(%x[#{start_instance_cmd(config)}])
 
-    information_service = InformationService.new
+    information_service = InformationService.instance
     err, msg = information_service.register_service('db_instances', config['host'] || LOCAL_IP, config['db_instance_port'])
 
     if err
@@ -94,7 +94,7 @@ namespace :db_instance do
   desc 'Stop DB instance'
   task :stop => :environment do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-    information_service = InformationService.new
+    information_service = InformationService.instance
 
     # removing this shard from MongoDB cluster
     config_services = information_service.get_list_of('db_config_services')
@@ -174,7 +174,7 @@ namespace :db_instance do
     Rails.logger.debug(%x[#{start_instance_cmd}])
 
     # 4. register the instance as a db_router - then Experiment managers should connect to it
-    information_service = InformationService.new
+    information_service = InformationService.instance
     err, msg = information_service.register_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
 
     if err
@@ -189,7 +189,7 @@ namespace :db_instance do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
 
     # 2. unregistering the instance from the routers' table
-    information_service = InformationService.new
+    information_service = InformationService.instance
     err, msg = information_service.deregister_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
     if err
       puts "Fatal error while deregistering db instance '#{err}': #{msg}"
@@ -211,7 +211,7 @@ namespace :db_config_service do
   desc 'Start DB Config Service'
   task :start => :environment do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-    information_service = InformationService.new
+    information_service = InformationService.instance
 
     unless File.exist?(File.join(DB_BIN_PATH, config['db_config_dbpath']))
       %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_config_dbpath'])}]
@@ -259,7 +259,7 @@ namespace :db_config_service do
   desc 'Stop DB instance'
   task :stop => :environment do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-    information_service = InformationService.new
+    information_service = InformationService.instance
 
     kill_processes_from_list(proc_list('router', config))
     kill_processes_from_list(proc_list('config', config))
@@ -282,7 +282,7 @@ namespace :db_router do
   desc 'Start DB router'
   task :start => :environment do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-    information_service = InformationService.new
+    information_service = InformationService.instance
 
     if service_status('router', config)
       stop_router(config)
@@ -309,7 +309,7 @@ namespace :db_router do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
 
     kill_processes_from_list(proc_list('router', config))
-    information_service = InformationService.new
+    information_service = InformationService.instance
 
     err, msg = information_service.deregister_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
 
