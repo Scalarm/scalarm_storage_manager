@@ -7,16 +7,19 @@
 # [session[:user]] to user id as string,
 # [session[:uuid]] to unique session id (for separate browser/clients)
 require 'active_support/concern'
+require 'action_controller/metal/mime_responds'
 
 require 'scalarm/database/model/simulation_manager_temp_password'
 
 require_relative 'grid_proxy'
 
 require_relative 'scalarm_user'
+require_relative 'user_session'
 
 module Scalarm::ServiceCore
   module ScalarmAuthentication
     extend ActiveSupport::Concern
+    include ActionController::MimeResponds
 
     PROXY_HEADER = 'X-Proxy-Cert'
 
@@ -56,6 +59,26 @@ module Scalarm::ServiceCore
             create_and_update_session(session[:user], session[:uuid])
       else
         Logger.debug("[authentication] one-time authentication (without session saving)")
+      end
+    end
+
+    ##
+    # A method to invoke when authentication fails.
+    # This is basic implementation - it should be overriden in specific service code.
+    def authentication_failed
+      respond_to do |format|
+        format.html do
+          flash[:error] = 'You have to login first'
+
+          redirect_to :index
+        end
+        format.json do
+          Logger.debug('[authentication] 401')
+
+          # TODO: there are problems with AJAX 401 annoying authentication prompts
+          headers['WWW-Authenticate'] = %(Basic realm="Scalarm")
+          render json: {status: 'error', reason: 'Authentication failed'}, status: :unauthorized
+        end
       end
     end
 
