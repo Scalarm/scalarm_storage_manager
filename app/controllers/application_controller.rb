@@ -7,13 +7,16 @@ class ApplicationController < ActionController::Base
   # For APIs, you may want to use :null_session instead.
   protect_from_forgery with: :null_session
 
-  before_filter :start_monitoring
-  after_filter :stop_monitoring
 
+  if Rails.application.secrets.monitoring
+    before_filter :start_monitoring
+    after_filter :stop_monitoring
+
+    @@probe = MonitoringProbe.new
+  end
   rescue_from Scalarm::ServiceCore::AuthenticationError,
               with: :authentication_failed
 
-  @@probe = MonitoringProbe.new
 
   protected
 

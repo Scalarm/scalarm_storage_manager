@@ -5,9 +5,8 @@ unless Rails.env.test?
 
   # class initizalization
   # config moved to secrets.yml
-  config = YAML.load_file(File.join(Rails.root, 'config', 'scalarm.yml'))
-  # TODO move config to secrets.yml
-  #config = Rails.application.secrets.database
+  #config = YAML.load_file(File.join(Rails.root, 'config', 'scalarm.yml'))
+  config = Rails.application.secrets.database
 
   if config.nil?
     slog('mongo_active_record', 'No database configuration, using defaults')

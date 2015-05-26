@@ -15,7 +15,7 @@ ScalarmStorageManager::Application.load_tasks
 
 namespace :log_bank do
   desc 'Start the service'
-  task :start => :environment do
+  task :start => [:environment, :ensure_config] do
     %x[thin start -d -C config/thin.yml]
   end
 
@@ -30,23 +30,33 @@ DB_BIN_PATH = File.join('.', 'mongodb', 'bin')
 LOCAL_IP = UDPSocket.open {|s| begin s.connect("64.233.187.99", 1); s.addr.last rescue "127.0.0.1" end }
 
 namespace :service do
-  task :start => [:environment, 'db_instance:start', 'db_config_service:start', 'log_bank:start' ] do
+  task :start => [:environment, :ensure_config, 'db_instance:start', 'db_config_service:start', 'log_bank:start' ] do
     load_balancer_registration
   end
 
-  task :start_single => [:environment, 'db_instance:start_single', 'log_bank:start' ] do
+  task :stop => [:environment, 'log_bank:start', 'db_config_service:start', 'db_instance:start' ] do
     load_balancer_registration
   end
 
-  task :stop_single => [:environment, 'db_instance:stop_single', 'log_bank:stop' ] do
+  task :start_single => [:environment, :ensure_config, 'db_instance:start_single', 'log_bank:start' ] do
+    load_balancer_registration
+  end
+
+  task :stop_single => [:environment, 'log_bank:stop', 'db_instance:stop_single'] do
     load_balancer_deregistration
+  end
+
+  desc 'Create default configuration files if these do not exist'
+  task :ensure_config do
+    copy_example_config_if_not_exists('config/secrets.yml')
+    copy_example_config_if_not_exists('config/thin.yml')
   end
 end
 
 namespace :db_instance do
   desc 'Start DB instance'
-  task :start => :environment do
-    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+  task :start => [:environment, 'service:ensure_config'] do
+    config = load_config
 
     unless File.exist?(File.join(DB_BIN_PATH, config['db_instance_dbpath']))
       %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_instance_dbpath'])}]
@@ -149,7 +159,7 @@ namespace :db_instance do
   end
 
   desc 'Start a single DB instance in a non-sharded mode'
-  task :start_single => :environment do
+  task :start_single => [:environment, 'service:ensure_config'] do
     # 1. read the config
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
 
@@ -209,7 +219,7 @@ end
 
 namespace :db_config_service do
   desc 'Start DB Config Service'
-  task :start => :environment do
+  task :start => [:environment, 'service:ensure_config'] do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
     information_service = InformationService.instance
 
@@ -280,7 +290,7 @@ end
 
 namespace :db_router do
   desc 'Start DB router'
-  task :start => :environment do
+  task :start => [:environment, 'service:ensure_config'] do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
     information_service = InformationService.instance
 
@@ -305,7 +315,7 @@ namespace :db_router do
   end
 
   desc 'Stop DB router'
-  task :stop => :environment do
+  task :stop => [:environment, 'service:ensure_config'] do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
 
     kill_processes_from_list(proc_list('router', config))
@@ -322,12 +332,12 @@ end
 
 namespace :load_balancer do
   desc 'Registration to load balancer'
-  task :register do
+  task :register => ['service:ensure_config'] do
     load_balancer_registration
   end
 
   desc 'Deregistration from load balancer'
-  task :deregister do
+  task :deregister => ['service:ensure_config'] do
     load_balancer_deregistration
   end
 end
@@ -476,3 +486,19 @@ def load_balancer_deregistration
     puts 'load_balancer.disable_registration option is active'
   end
 end
+
+def load_config
+  Rails.application.secrets
+end
+
+
+def copy_example_config_if_not_exists(base_name, prefix='example')
+  config = base_name
+  example_config = "#{base_name}.example"
+
+  unless File.exists?(config)
+    puts "Copying #{example_config} to #{config}"
+    FileUtils.cp(example_config, config)
+  end
+end
+
