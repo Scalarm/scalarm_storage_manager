@@ -34,11 +34,15 @@ namespace :service do
     load_balancer_registration
   end
 
+  task :stop => [:environment, 'log_bank:stop', 'db_config_service:stop', 'db_instance:stop' ] do
+    load_balancer_deregistration
+  end
+
   task :start_single => [:environment, 'db_instance:start_single', 'log_bank:start' ] do
     load_balancer_registration
   end
 
-  task :stop_single => [:environment, 'db_instance:stop_single', 'log_bank:stop' ] do
+  task :stop_single => [:environment, 'log_bank:stop', 'db_instance:stop_single' ] do
     load_balancer_deregistration
   end
 end
