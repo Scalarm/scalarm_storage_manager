@@ -22,8 +22,10 @@ module Scalarm::ServiceCore
     include ActionController::MimeResponds
 
     PROXY_HEADER = 'X-Proxy-Cert'
+    TOKEN_HEADER = 'X-Scalarm-Token'
 
     RAILS_PROXY_HEADER = 'HTTP_' + PROXY_HEADER.upcase.gsub('-', '_')
+    RAILS_TOKEN_HEADER = 'HTTP_' + TOKEN_HEADER.upcase.gsub('-', '_')
 
     def initialize
       super
@@ -36,8 +38,8 @@ module Scalarm::ServiceCore
       @current_user = nil; @sm_user = nil; @session_auth = false; @user_session = nil
 
       case true
-        when token_provided?(params)
-          authenticate_with_token(params[:token])
+        when (token = get_token(request))
+          authenticate_with_token(token)
 
         when (not session[:user].blank?)
           authenticate_with_session
@@ -178,8 +180,8 @@ module Scalarm::ServiceCore
       end
     end
 
-    def token_provided?(params)
-      !!params[:token]
+    def get_token(request)
+      token = (request.params[:token] or request.env[RAILS_TOKEN_HEADER])
     end
 
     def authenticate_with_token(token)

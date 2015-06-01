@@ -5,6 +5,7 @@ require 'scalarm/database/model/user_session'
 module Scalarm::ServiceCore
   class UserSession < Scalarm::Database::Model::UserSession
 
+    # TODO: rails configuration should not be used here - use Configuration
     def valid?
       if Time.now.to_i - self.last_update.to_i > Rails.configuration.session_threshold
         false
