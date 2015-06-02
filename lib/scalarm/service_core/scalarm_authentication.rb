@@ -38,7 +38,7 @@ module Scalarm::ServiceCore
       @current_user = nil; @sm_user = nil; @session_auth = false; @user_session = nil
 
       case true
-        when (token = get_token(request))
+        when !!(token = get_token(request))
           authenticate_with_token(token)
 
         when (not session[:user].blank?)
