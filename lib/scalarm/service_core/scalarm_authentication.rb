@@ -187,8 +187,7 @@ module Scalarm::ServiceCore
     def authenticate_with_token(token)
       @user_session = ScalarmAuthentication.find_session_by_token(token)
       if @user_session
-        @user_session.tokens.delete(token)
-        @user_session.save
+        @user_session.destroy_token!(token)
         validate_and_use_session
       else
         Logger.warn("Invalid token provided for login: #{token}")
@@ -196,7 +195,7 @@ module Scalarm::ServiceCore
     end
 
     def self.find_session_by_token(token)
-      UserSession.where(tokens: token).first
+      UserSession.find_by_token(token)
     end
 
     def validate_and_use_session

@@ -26,4 +26,5 @@ InformationService client, parameters validator and other utils.
   spec.add_development_dependency 'mocha'
   spec.add_dependency 'activesupport', '~> 4.1'
   spec.add_dependency 'actionpack', '~> 4.1'
+  spec.add_dependency 'rest-client', '~> 1.8'
 end
