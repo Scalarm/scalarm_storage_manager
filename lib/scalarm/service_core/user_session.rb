@@ -27,41 +27,6 @@ module Scalarm::ServiceCore
       session
     end
 
-    def self.find_by_token
-      UserSession.where(tokens: token).first
-    end
-
-    ##
-    # Generate token and save record to database
-    # If block given - yield token and destroy after block finish
-    def generate_token
-      token = self.class._gen_random_token
-      self.tokens = [] unless self.tokens
-      self.tokens << token
-      self.save
-
-      if block_given?
-        begin
-          yield token
-        ensure
-          self.destroy_token!(token)
-        end
-      else
-        token
-      end
-    end
-
-    def self._gen_random_token
-      SecureRandom.uuid
-    end
-
-    ##
-    # Destroy token and save record only if exists
-    def destroy_token!(token)
-      token = self.tokens.delete(token)
-      self.save if token
-      token
-    end
 
   end
 end

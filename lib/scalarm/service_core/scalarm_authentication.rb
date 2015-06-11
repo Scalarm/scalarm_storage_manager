@@ -62,6 +62,8 @@ module Scalarm::ServiceCore
       else
         Logger.debug("[authentication] one-time authentication (without session saving)")
       end
+
+      Logger.debug("[authentication] user_id: #{@current_user.id}") if @current_user
     end
 
     ##
@@ -170,6 +172,8 @@ module Scalarm::ServiceCore
           @current_user.save
         end
 
+        puts "current: #{@current_user.id}"
+
           # session saving on proxy authentication was disabled
           # session[:user] = @current_user.id.to_s unless @current_user.nil?
           # session[:uuid] = SecureRandom.uuid
@@ -185,17 +189,18 @@ module Scalarm::ServiceCore
     end
 
     def authenticate_with_token(token)
-      @user_session = ScalarmAuthentication.find_session_by_token(token)
-      if @user_session
-        @user_session.destroy_token!(token)
+      @current_user = ScalarmAuthentication.find_user_by_token(token)
+      if @current_user
+        # token is used one time
+        @current_user.destroy_token!(token)
         validate_and_use_session
       else
-        Logger.warn("Invalid token provided for login: #{token}")
+        Logger.warn("Invalid token provided: #{token}")
       end
     end
 
-    def self.find_session_by_token(token)
-      UserSession.find_by_token(token)
+    def self.find_user_by_token(token)
+      ScalarmUser.find_by_token(token)
     end
 
     def validate_and_use_session

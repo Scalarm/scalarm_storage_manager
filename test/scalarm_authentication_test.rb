@@ -18,6 +18,23 @@ class ScalarmAuthenticationTest < MiniTest::Test
     super
   end
 
+  def test_find_user_by_token
+    u = Scalarm::ServiceCore::ScalarmUser.new(login: 'user')
+    u.save
+
+    generated_token = nil
+    u.generate_token do |token|
+      generated_token = token
+      found_user = Scalarm::ServiceCore::ScalarmAuthentication.find_user_by_token(token)
+      refute_nil found_user
+      assert_equal found_user.id, u.id
+    end
+
+    ## Check if generated token disappeared
+    found_user_2 = Scalarm::ServiceCore::ScalarmAuthentication.find_user_by_token(generated_token)
+    assert_nil found_user_2
+  end
+
   # TODO: write DummyController tests - skipped now because of many mocking issues
 
   # class DummyController

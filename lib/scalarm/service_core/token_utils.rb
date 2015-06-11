@@ -12,15 +12,16 @@ module Scalarm::ServiceCore
     # @param [Hash] parameters
     # @param [Hash] headers
     # @return [RestClient::Response]
-    def self.get(url, user_session, parameters, headers={})
-      user_session.generate_token do |token|
-        RestClient.post(
-            url,
-            parameters,
-            headers.merge(
+    def self.get(url, scalarm_user, parameters, headers={})
+      scalarm_user.generate_token do |token|
+        RestClient::Request.execute(
+            method: :get,
+            url: url,
+            headers: headers.merge(
                 params: parameters,
                 ScalarmAuthentication::TOKEN_HEADER => token
-            )
+            ),
+            verify_ssl: false
         )
       end
     end
@@ -32,14 +33,16 @@ module Scalarm::ServiceCore
     # @param [Hash] parameters
     # @param [Hash] headers
     # @return [RestClient::Response]
-    def self.post(url, user_session, payload, headers={})
-      user_session.generate_token do |token|
-        RestClient.post(
-          url,
-          payload,
-          headers.merge(
-              ScalarmAuthentication::TOKEN_HEADER => token
-          )
+    def self.post(url, scalarm_user, payload, headers={})
+      scalarm_user.generate_token do |token|
+        RestClient::Request.execute(
+            method: :post,
+            url: url,
+            payload: payload,
+            headers: headers.merge(
+                ScalarmAuthentication::TOKEN_HEADER => token
+            ),
+            verify_ssl: false
         )
       end
     end
