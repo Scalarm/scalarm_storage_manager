@@ -1,4 +1,6 @@
 ScalarmStorageManager::Application.routes.draw do
+  root 'application#welcome'
+
   get '/status' => 'log_bank#status'
 
   put 'experiments/:experiment_id/simulations/:simulation_id' => 'log_bank#put_simulation_output'

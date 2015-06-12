@@ -17,10 +17,12 @@ gem 'newrelic_rpm'
 
 gem 'sys-filesystem'
 
-# for local development - set path to scalarm-database
-#gem 'scalarm-database', path: '/home/jliput/Scalarm/scalarm-database'
+gem 'mocha', group: :test
+
+## for local development - set path to scalarm-database
+# gem 'scalarm-database', path: '/home/jliput/Scalarm/scalarm-database'
 gem 'scalarm-database', '>= 0.2', git: 'git://github.com/Scalarm/scalarm-database.git'
 
-# for local development - set path to scalarm-core
-#gem 'scalarm-service_core', path: '/home/jliput/Scalarm/scalarm-service_core'
-gem 'scalarm-service_core', '>= 0.1', git: 'git://github.com/Scalarm/scalarm-service_core.git'
+## for local development - set path to scalarm-core
+# gem 'scalarm-service_core', path: '/home/jliput/Scalarm/scalarm-service_core'
+gem 'scalarm-service_core', '~> 0.2.1', git: 'git://github.com/Scalarm/scalarm-service_core.git'
