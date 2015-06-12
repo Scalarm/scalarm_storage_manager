@@ -141,6 +141,27 @@ module Scalarm::ServiceCore
 
     ####
 
+    require_relative 'token_utils'
+
+    ## Token authentication request utils
+
+    def get_with_token(url, parameters={}, headers={})
+      TokenUtils.get(url, self, parameters, headers)
+    end
+
+    def post_with_token(url, payload, headers={})
+      TokenUtils.post(url, self, payload, headers)
+    end
+
+    def put_with_token(url, payload, headers={})
+      TokenUtils.put(url, self, payload, headers)
+    end
+
+    def delete_with_token(url, payload, headers={})
+      TokenUtils.delete(url, self, payload, headers)
+    end
+
+
     private
 
     def compute_ban_end(start_time)

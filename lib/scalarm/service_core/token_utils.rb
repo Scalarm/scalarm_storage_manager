@@ -7,43 +7,44 @@ module Scalarm::ServiceCore
 
     ##
     # Execute GET request with token authentication
-    # @param [String] url
-    # @param [Scalarm::ServiceCore::UserSession] user_session
-    # @param [Hash] parameters
-    # @param [Hash] headers
     # @return [RestClient::Response]
-    def self.get(url, scalarm_user, parameters, headers={})
-      scalarm_user.generate_token do |token|
-        RestClient::Request.execute(
-            method: :get,
-            url: url,
-            headers: headers.merge(
-                params: parameters,
-                ScalarmAuthentication::TOKEN_HEADER => token
-            ),
-            verify_ssl: false
-        )
-      end
+    def self.get(url, scalarm_user, parameters={}, headers={})
+      _request(:get, url, scalarm_user, parameters, headers)
     end
 
     ##
     # Execute POST request with token authentication
-    # @param [String] url
-    # @param [Scalarm::ServiceCore::UserSession] user_session
-    # @param [Hash] parameters
-    # @param [Hash] headers
     # @return [RestClient::Response]
     def self.post(url, scalarm_user, payload, headers={})
+      _request(:post, url, scalarm_user, payload, headers)
+    end
+
+    def self.put(url, scalarm_user, payload, headers={})
+      _request(:put, url, scalarm_user, payload, headers)
+    end
+
+    def self.delete(url, scalarm_user, payload, headers={})
+      _request(:delete, url, scalarm_user, payload, headers)
+    end
+
+    def self._request(method, url, scalarm_user, data, headers, verify_ssl=false)
       scalarm_user.generate_token do |token|
-        RestClient::Request.execute(
-            method: :post,
+        req_hash = {
+            method: method,
             url: url,
-            payload: payload,
             headers: headers.merge(
                 ScalarmAuthentication::TOKEN_HEADER => token
             ),
-            verify_ssl: false
-        )
+            verify_ssl: verify_ssl
+        }
+
+        if method == :get
+          req_hash[:headers] = req_hash[:headers].merge(params: data)
+        else
+          req_hash[:payload] = data
+        end
+
+        RestClient::Request.execute(req_hash)
       end
     end
 
