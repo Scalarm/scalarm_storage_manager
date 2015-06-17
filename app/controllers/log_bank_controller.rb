@@ -2,9 +2,16 @@ require 'zip/zip'
 require 'zip/zipfilesystem'
 require 'yaml'
 
+require 'scalarm/database/core/mongo_active_record'
+require 'scalarm/service_core/utils'
+
 class LogBankController < ApplicationController
-  before_filter :authenticate, :except => [ :status, :get_simulation_output_size, :get_experiment_output_size, :get_simulation_stdout_size ]
-  before_filter :load_log_bank, :except => [ :status ]
+  before_filter :authenticate, except: [
+                                 :status, :get_simulation_output_size,
+                                 :get_experiment_output_size, :get_simulation_stdout_size
+                             ]
+
+  before_filter :load_log_bank, except: [ :status ]
   before_filter :authorize_get, only: [ :get_simulation_output, :get_experiment_output, :get_simulation_stdout ]
   before_filter :authorize_put, only: [ :put_simulation_output, :put_simulation_stdout ]
   before_filter :authorize_delete, only: [ :delete_simulation_output, :delete_experiment_output, :delete_simulation_stdout ]
@@ -12,7 +19,7 @@ class LogBankController < ApplicationController
   @@experiment_size_threshold = 1024*1024*1024*300 # 300 MB
 
   def status
-    tests = Utils.parse_json_if_string(params[:tests])
+    tests = Scalarm::ServiceCore::Utils.parse_json_if_string(params[:tests])
 
     status = 'ok'
     message = ''
@@ -70,6 +77,8 @@ class LogBankController < ApplicationController
     end
   end
 
+  ##
+  # PUT, parameters: file - binary simulation output
   def put_simulation_output
     unless params[:file] && (tmpfile = params[:file].tempfile)
       render inline: 'No file provided', status: 400
@@ -94,25 +103,31 @@ class LogBankController < ApplicationController
     else
       t = Tempfile.new("experiment_#{@experiment_id}")
 
-      # Give the path of the temp file to the zip outputstream, it won't try to open it as an archive.
-      Zip::ZipOutputStream.open(t.path) do |zos|
-        SimulationOutputRecord.where(experiment_id: @experiment_id).each do |sim_record|
-          file_object = sim_record.file_object
+      begin
+        # Give the path of the temp file to the zip outputstream, it won't try to open it as an archive.
+        Zip::ZipOutputStream.open(t.path) do |zos|
+          SimulationOutputRecord.where(experiment_id: @experiment_id).each do |sim_record|
+            file_object = sim_record.file_object
 
-          unless file_object.nil? or sim_record.file_object_name.nil?
-            # Create a new entry with some arbitrary name
-            zos.put_next_entry("experiment_#{@experiment_id}/#{sim_record.file_object_name}")
-            # Add the contents of the file, don't read the stuff likewise if its binary, instead use direct IO
-            zos.print file_object.read.force_encoding('UTF-8')
+            unless file_object.nil? or sim_record.file_object_name.nil?
+              # Create a new entry with some arbitrary name
+              zos.put_next_entry("experiment_#{@experiment_id}/#{sim_record.file_object_name}")
+              # Add the contents of the file, don't read the stuff likewise if its binary, instead use direct IO
+              zos.print file_object.read.force_encoding('UTF-8')
+            end
           end
         end
-      end
 
-      # End of the block  automatically closes the file.
-      # Send it using the right mime type, with a download window and some nice file name.
-      send_file t.path, type: 'application/zip', disposition: 'attachment', filename: "experiment_#{@experiment_id}.zip"
-      # The temp file will be deleted some time...
-      t.close
+        # End of the block  automatically closes the file.
+        # Send it using the right mime type, with a download window and some nice file name.
+        send_file t.path, type: 'application/zip',
+                  disposition: 'attachment',
+                  filename: "experiment_#{@experiment_id}.zip"
+
+      ensure
+        # The temp file will be deleted some time...
+        t.close
+      end
     end
 
   end
@@ -191,12 +206,14 @@ class LogBankController < ApplicationController
   private
 
   def load_log_bank
-    @log_bank = MongoLogBank.new(YAML.load_file("#{Rails.root}/config/scalarm.yml"))
+    @log_bank = MongoLogBank.new(Rails.application.secrets.database)
     @experiment_id = params[:experiment_id]
     @simulation_id = params[:simulation_id]
   end
 
-  # only the experiment owner or a person mentioned on the shared with experiment can get output
+  ##
+  # Only the experiment owner or a person mentioned on the shared with experiment
+  # can get output
   def authorize_get
     if @current_user.nil? or @experiment_id.nil?
       render inline: '', status: 404
@@ -205,14 +222,16 @@ class LogBankController < ApplicationController
       
     experiment = Experiment.find_by_id(@experiment_id)
     unless experiment.owned_by?(@current_user) or experiment.shared_with?(@current_user)
-      render inline: '', status: 401      
+      render inline: '', status: 403
     end
   end
 
-  # all types of Scalarm users (the owner, a user on the shared with list, and the Simulation Manager can put data)
+  ##
+  # All types of Scalarm users (the owner, a user on the shared with list,
+  # and the Simulation Manager can put data)
   def authorize_put
     if @experiment_id.nil? or (@current_user.nil? and @sm_user.nil?)
-      Rails.logger.debug('Something is wrong')
+      Rails.logger.debug('Missing experiment_id or user is not authenticated')
       render inline: '', status: 404
       return 
     end
@@ -222,20 +241,23 @@ class LogBankController < ApplicationController
     if not @current_user.nil?
 
       unless experiment.owned_by?(@current_user) or experiment.shared_with?(@current_user)
-        render inline: '', status: 401
+        render inline: 'This client does not have permission access this experiment',
+               status: 403
       end
 
     elsif not @sm_user.nil?
       Rails.logger.debug('We are on the right track')
 
-      unless @sm_user.executes?(experiment)
-        Rails.logger.debug('But something went wrong')
-        render inline: '', status: 401
+      # check if sm_user is allowed to execute experiment
+      unless @sm_user.experiment_id.to_s == experiment.id.to_s
+        Rails.logger.warn('This client cannot put files for this experiment')
+        render inline: 'This client does not have permission to put files for this experiment',
+               status: 403
       end
 
     else
 
-      render inline: '', status: 401
+      render inline: 'Cannot authenticate client', status: 403
 
     end
   end
@@ -249,14 +271,14 @@ class LogBankController < ApplicationController
       
     experiment = Experiment.find_by_id(@experiment_id)
     unless experiment.owned_by?(@current_user) 
-      render inline: '', status: 401
+      render inline: '', status: 403
     end
   end
 
   # --- Status tests ---
 
   def status_test_database
-    MongoActiveRecord.available?
+    Scalarm::Database::MongoActiveRecord.available?
   end
 
 end

@@ -3,6 +3,9 @@ require 'json'
 require 'mongo'
 require 'sys/filesystem'
 
+require 'scalarm/service_core'
+require 'scalarm/service_core/information_service'
+
 include Mongo
 
 # Add your own tasks in files placed in lib/tasks ending in .rake,
@@ -13,9 +16,40 @@ require File.expand_path('../app/models/load_balancer_registration.rb', __FILE__
 
 ScalarmStorageManager::Application.load_tasks
 
+# TODO: db_instance_dbpath should not be relative to DB_BIN_PATH
+# because it makes difficult to use external mongo if available
+
+# configuration - path to a folder with database binaries
+DB_BIN_PATH = File.join('.', 'mongodb', 'bin')
+LOCAL_IP = UDPSocket.open {|s| begin s.connect("64.233.187.99", 1); s.addr.last rescue "127.0.0.1" end }
+
+namespace :service do
+  task :start => [:environment, 'service:ensure_config', 'db_instance:start', 'db_config_service:start', 'log_bank:start' ] do
+    load_balancer_registration
+  end
+
+  task :stop => [:environment, 'log_bank:start', 'db_config_service:start', 'db_instance:start' ] do
+    load_balancer_registration
+  end
+
+  task :start_single => [:environment, 'service:ensure_config', 'db_instance:start_single', 'log_bank:start' ] do
+    load_balancer_registration
+  end
+
+  task :stop_single => [:environment, 'log_bank:stop', 'db_instance:stop_single'] do
+    load_balancer_deregistration
+  end
+
+  desc 'Create default configuration files if these do not exist'
+  task :ensure_config do
+    copy_example_config_if_not_exists('config/secrets.yml')
+    copy_example_config_if_not_exists('config/thin.yml')
+  end
+end
+
 namespace :log_bank do
   desc 'Start the service'
-  task :start => :environment do
+  task :start => [:environment, 'service:ensure_config'] do
     %x[thin start -d -C config/thin.yml]
   end
 
@@ -25,24 +59,10 @@ namespace :log_bank do
   end
 end
 
-# configuration - path to a folder with database binaries
-DB_BIN_PATH = File.join('.', 'mongodb', 'bin')
-LOCAL_IP = UDPSocket.open {|s| begin s.connect("64.233.187.99", 1); s.addr.last rescue "127.0.0.1" end }
-
-namespace :service do
-  task :start => [:environment, 'db_instance:start', 'db_config_service:start', 'log_bank:start' ] do
-    load_balancer_registration
-  end
-
-  task :stop => [:environment, 'db_config_service:stop', 'db_instance:stop', 'log_bank:stop' ] do
-    load_balancer_deregistration
-  end
-end
-
 namespace :db_instance do
   desc 'Start DB instance'
-  task :start => :environment do
-    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+  task :start => [:environment, 'service:ensure_config'] do
+    config = load_config
 
     unless File.exist?(File.join(DB_BIN_PATH, config['db_instance_dbpath']))
       %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_instance_dbpath'])}]
@@ -53,7 +73,7 @@ namespace :db_instance do
     Rails.logger.debug(start_instance_cmd(config))
     Rails.logger.debug(%x[#{start_instance_cmd(config)}])
 
-    information_service = InformationService.new
+    information_service = InformationService.instance
     err, msg = information_service.register_service('db_instances', config['host'] || LOCAL_IP, config['db_instance_port'])
 
     if err
@@ -90,7 +110,7 @@ namespace :db_instance do
   desc 'Stop DB instance'
   task :stop => :environment do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-    information_service = InformationService.new
+    information_service = InformationService.instance
 
     # removing this shard from MongoDB cluster
     config_services = information_service.get_list_of('db_config_services')
@@ -143,13 +163,75 @@ namespace :db_instance do
       puts "Fatal error while deregistering db instance '#{err}': #{msg}"
     end
   end
+
+  desc 'Start a single DB instance in a non-sharded mode'
+  task :start_single => [:environment, 'service:ensure_config'] do
+    # 1. read the config
+    config = Rails.application.secrets.database
+
+    # 2. create a db data folder if it doesn't exist
+    unless File.exist?(File.join(DB_BIN_PATH, config['db_instance_dbpath']))
+      %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_instance_dbpath'])}]
+    end
+
+    # 3. start and a single instance without sharding on a db_router port
+    log_append = File.exist?(config['db_instance_logpath']) ? '--logappend' : ''
+
+    stat = Sys::Filesystem.stat('/')
+    mb_available = stat.block_size * stat.blocks_available / 1024 / 1024
+
+    start_instance_cmd = ["cd #{DB_BIN_PATH}",
+      "./mongod --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_router_port']} " +
+        "--dbpath #{config['db_instance_dbpath']} --logpath #{config['db_instance_logpath']} " +
+        "--fork --cpu --rest --httpinterface #{log_append} #{mb_available < 5120 ? '--smallfiles' : ''}"
+    ].join(';')
+
+    puts "Starting instance with command: #{start_instance_cmd}"
+    puts %x[#{start_instance_cmd}]
+
+    unless $? == 0
+      puts "Process failed, read log error: #{DB_BIN_PATH}/#{config['db_instance_logpath']}"
+    end
+
+    # 4. register the instance as a db_router - then Experiment managers should connect to it
+    information_service = InformationService.instance
+    err, msg = information_service.register_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+
+    if err
+      puts "Fatal error while registering a db instance in a single mode '#{err}': #{msg}"
+    end
+    # TODO we should probably to something here
+  end
+
+  desc 'Stop a DB instance started in a non-sharded mode'
+  task :stop_single => :environment do
+    # 1. read the config
+    config = Rails.application.secrets.database
+
+    # 2. unregistering the instance from the routers' table
+    information_service = InformationService.instance
+    err, msg = information_service.deregister_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+    if err
+      puts "Fatal error while deregistering db instance '#{err}': #{msg}"
+      # TODO we should probably to something here
+    end
+
+    # 3. stopping the mongod process
+    puts 'Killing the service process'
+    proc_name = "./mongod .* --port #{config['db_router_port']}"
+    out = %x[ps aux | grep "#{proc_name}"]
+    instance_proc_list = out.split("\n").delete_if { |line| line.include? 'grep' }
+
+    kill_processes_from_list(instance_proc_list)
+  end
+
 end
 
 namespace :db_config_service do
   desc 'Start DB Config Service'
-  task :start => :environment do
+  task :start => ['service:ensure_config', :environment] do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-    information_service = InformationService.new
+    information_service = InformationService.instance
 
     unless File.exist?(File.join(DB_BIN_PATH, config['db_config_dbpath']))
       %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_config_dbpath'])}]
@@ -197,7 +279,7 @@ namespace :db_config_service do
   desc 'Stop DB instance'
   task :stop => :environment do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-    information_service = InformationService.new
+    information_service = InformationService.instance
 
     kill_processes_from_list(proc_list('router', config))
     kill_processes_from_list(proc_list('config', config))
@@ -218,9 +300,9 @@ end
 
 namespace :db_router do
   desc 'Start DB router'
-  task :start => :environment do
+  task :start => [:environment, 'service:ensure_config'] do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
-    information_service = InformationService.new
+    information_service = InformationService.instance
 
     if service_status('router', config)
       stop_router(config)
@@ -243,11 +325,11 @@ namespace :db_router do
   end
 
   desc 'Stop DB router'
-  task :stop => :environment do
+  task :stop => ['service:ensure_config', :environment] do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
 
     kill_processes_from_list(proc_list('router', config))
-    information_service = InformationService.new
+    information_service = InformationService.instance
 
     err, msg = information_service.deregister_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
 
@@ -260,12 +342,12 @@ end
 
 namespace :load_balancer do
   desc 'Registration to load balancer'
-  task :register do
+  task :register => ['service:ensure_config'] do
     load_balancer_registration
   end
 
   desc 'Deregistration from load balancer'
-  task :deregister do
+  task :deregister => ['service:ensure_config'] do
     load_balancer_deregistration
   end
 end
@@ -414,3 +496,19 @@ def load_balancer_deregistration
     puts 'load_balancer.disable_registration option is active'
   end
 end
+
+def load_config
+  Rails.application.secrets
+end
+
+
+def copy_example_config_if_not_exists(base_name, prefix='example')
+  config = base_name
+  example_config = "#{base_name}.example"
+
+  unless File.exists?(config)
+    puts "Copying #{example_config} to #{config}"
+    FileUtils.cp(example_config, config)
+  end
+end
+
