@@ -1,3 +1,4 @@
+require 'scalarm/service_core'
 require 'scalarm/service_core/information_service'
 
 class InformationService < Scalarm::ServiceCore::InformationService
