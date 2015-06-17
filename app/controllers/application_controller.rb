@@ -18,6 +18,15 @@ class ApplicationController < ActionController::Base
               with: :authentication_failed
 
 
+  def welcome
+    respond_to do |format|
+      format.html { render html: "Welcome to Scalarm Storage Manager, #{@current_user.login}!" }
+      format.json { render json: {status: 'ok',
+                                  message: 'Welcome to Scalarm Storage Manager',
+                                  user_id: @current_user.id.to_s } }
+    end
+  end
+
   protected
 
   def authentication_failed
@@ -26,7 +35,7 @@ class ApplicationController < ActionController::Base
     reset_session
     @user_session.destroy unless @user_session.nil?
 
-    render inline: 'Authentication failed', status: 401
+    render json: {status: 'error', reason: 'Authentication failed'}, status: 401
   end
 
   def start_monitoring
