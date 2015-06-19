@@ -178,14 +178,12 @@ namespace :db_instance do
     stat = Sys::Filesystem.stat('/')
     mb_available = stat.block_size * stat.blocks_available / 1024 / 1024
 
-    start_instance_cmd = ["cd #{DB_BIN_PATH}",
-      "./mongod --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_router_port']} " +
-        "--dbpath #{config['db_instance_dbpath']} --logpath #{config['db_instance_logpath']} " +
-        "--cpu --rest --httpinterface --fork #{log_append} #{mb_available < 5120 ? '--smallfiles' : ''}"
-    ].join(';')
+    enable_auth = config['auth_username'] || config['auth_password']
 
-    Rails.logger.debug(start_instance_cmd)
-    Rails.logger.debug(%x[#{start_instance_cmd}])
+    cmd = start_single_instance_cmd(config, enable_auth)
+
+    puts(cmd)
+    puts(%x[#{cmd}])
 
     # 4. register the instance as a db_router - then Experiment managers should connect to it
     information_service = InformationService.instance
@@ -214,13 +212,53 @@ namespace :db_instance do
 
     # 3. stopping the mongod process
     puts 'Killing the service process'
-    proc_name = "./mongod .* --port #{config['db_router_port']}"
-    out = %x[ps aux | grep "#{proc_name}"]
-    instance_proc_list = out.split("\n").delete_if { |line| line.include? 'grep' }
-
-    kill_processes_from_list(instance_proc_list)
+    kill_mongod(config['db_router_port'])
   end
 
+  desc 'Create database with authentication'
+  task :create_auth => :environment do
+    config = load_database_config
+
+    unless config['auth_username'] and config['auth_password']
+      raise 'Missing configuration: both auth_username and auth_password are required to create_auth'
+    end
+
+    ## start mongod without auth to enable user creation
+    cmd = start_single_instance_cmd(config.merge('host' => 'localhost', 'db_router_host' => 'localhost'), false)
+    puts(cmd)
+    puts(%x[#{cmd}])
+
+    unless $? == 0
+      raise 'mongod process failed - please read logs for more details'
+    end
+
+    begin
+      db = nil
+      3.times do
+        begin
+          db = Mongo::Connection.new('localhost').db('admin')
+          break
+        rescue Mongo::ConnectionFailure
+          puts 'Failed to connect to mongo, will try in 2 seconds again...'
+          sleep 2
+        end
+      end
+      puts "Will add user #{config['auth_username']} to mongo instance..."
+      db.add_user(config['auth_username'], config['auth_username'], nil, roles: %w(readWrite dbAdmin userAdmin readWriteAnyDatabase))
+    ensure
+      kill_mongod(config['db_router_port'])
+    end
+  end
+
+end
+
+def kill_mongod(port)
+  puts 'Terminating mongod processes'
+  proc_name = "./mongod .* --port #{port}"
+  out = %x[ps aux | grep "#{proc_name}"]
+  instance_proc_list = out.split("\n").delete_if { |line| line.include? 'grep' }
+
+  kill_processes_from_list(instance_proc_list)
 end
 
 namespace :db_config_service do
@@ -353,16 +391,28 @@ def clear_instance(config)
   puts %x[rm -rf #{DB_BIN_PATH}/#{config['db_instance_dbpath']}/*]
 end
 
-def start_instance_cmd(config)
+
+def start_instance_cmd(config, auth=false)
+  generic_start_instance_cmd(config, config['db_instance_port'], true, auth)
+end
+
+def start_single_instance_cmd(config, auth=false)
+  generic_start_instance_cmd(config, (config['db_router_port'] || 27017), false, auth)
+end
+
+def generic_start_instance_cmd(config, port, shardsrv=true, auth=false)
   log_append = File.exist?(config['db_instance_logpath']) ? '--logappend' : ''
 
-  stat = Sys::Filesystem.stat('/')
-  mb_available = stat.block_size * stat.blocks_available / 1024 / 1024
+  fs_stat = Sys::Filesystem.stat('/')
+  mb_available = fs_stat.block_size * fs_stat.blocks_available / 1024 / 1024
+  smallfiles = config['force_smallfiles'] || (mb_available < 5120)
 
+  ## notice: removed --quiet at 19-06-2015
   ["cd #{DB_BIN_PATH}",
-    "./mongod --shardsvr --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_instance_port']} " +
+    "./mongod #{shardsrv ? "--shardsvr" : ''} --bind_ip #{config['host'] || LOCAL_IP} --port #{port} " +
       "--dbpath #{config['db_instance_dbpath']} --logpath #{config['db_instance_logpath']} " +
-      "--cpu --quiet --rest --fork #{log_append} #{mb_available < 5120 ? '--smallfiles' : ''}"
+      "--cpu --rest --httpinterface --fork #{log_append} #{smallfiles ? '--smallfiles' : ''} " +
+        " #{auth ? '--auth' : '--noauth'}"
   ].join(';')
 end
 
@@ -446,7 +496,7 @@ def start_router_cmd(config_db_url, config)
   log_append = File.exist?(config['db_router_logpath']) ? '--logappend' : ''
 
   ["cd #{DB_BIN_PATH}",
-   "./mongos --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_router_port']} --configdb #{config_db_url} --logpath #{config['db_router_logpath']} --fork #{log_append}"
+   "./mongos --bind_ip #{config['db_router_host'] || config['host'] || LOCAL_IP} --port #{config['db_router_port']} --configdb #{config_db_url} --logpath #{config['db_router_logpath']} --fork #{log_append}"
   ].join(';')
 end
 
