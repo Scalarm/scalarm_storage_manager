@@ -204,7 +204,9 @@ namespace :db_instance do
 
     # 2. unregistering the instance from the routers' table
     information_service = InformationService.instance
-    err, msg = information_service.deregister_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+    err, msg = information_service.deregister_service('db_routers',
+                                                      config['host'] || config['db_router_host'] || LOCAL_IP,
+                                                      config['db_router_port'] || 27017)
     if err
       puts "Fatal error while deregistering db instance '#{err}': #{msg}"
       # TODO we should probably to something here
