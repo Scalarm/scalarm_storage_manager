@@ -10,7 +10,7 @@ require 'scalarm/database/core/mongo_active_record'
 
 class SimulationOutputRecord < Scalarm::Database::MongoActiveRecord
   # binary store initializing
-  @@config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+  @@config = Utils.load_database_config
   @@binary_store = Mongo::Grid.new(SimulationOutputRecord.get_database(@@config['db_name']))
 
   use_collection @@config['binaries_collection_name']

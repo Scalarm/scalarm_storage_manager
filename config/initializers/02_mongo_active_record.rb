@@ -5,8 +5,9 @@ unless Rails.env.test?
 
   # class initizalization
   # config moved to secrets.yml
-  config = YAML.load_file(File.join(Rails.root, 'config', 'scalarm.yml'))
-  # TODO move config to secrets.yml
+  config = Utils.load_database_config
+
+  # TODO move config to secrets.yml?
   #config = Rails.application.secrets.database
 
   if config.nil?
@@ -26,22 +27,29 @@ unless Rails.env.test?
   # by default, try to connect to local mongodb
   # TODO: connect to local mongodb only if list of db_routers is empty
   slog('mongo_active_record', 'Trying to connect to localhost')
-  unless Scalarm::Database::MongoActiveRecord.connection_init('localhost', config['db_name'])
 
+  begin
+    Scalarm::Database::MongoActiveRecord.connection_init('localhost', config['db_name'])
+  rescue Mongo::ConnectionFailure
     slog('mongo_active_record', 'Cannot connect to local mongodb - fetching mongodb adresses from IS')
     information_service = InformationService.instance
     storage_manager_list = information_service.get_list_of('db_routers')
 
     if storage_manager_list.blank?
       slog('init', 'Error: db_routers list from IS is empty - there is no database to connect')
-      raise 'db_routers list from IS is empty'
+
+      # TODO: ugly hack to enable :environment in Rakefile for mongo tasks
+      # raise 'db_routers list from IS is empty'
     else
       slog('init', "Fetched db_routers list: #{storage_manager_list}")
       db_router_url = storage_manager_list.sample
       slog('mongo_active_record', "Connecting to '#{db_router_url}'")
-      Scalarm::Database::MongoActiveRecord.connection_init(db_router_url, config['db_name'])
+      begin
+        Scalarm::Database::MongoActiveRecord.connection_init(db_router_url, config['db_name'])
+      rescue Mongo::ConnectionFailure
+        slog('mongo_active_record', 'Cannot connect to remote mongodb')
+      end
     end
-
   end
 
 end

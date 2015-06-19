@@ -8,7 +8,7 @@ class MonitoringProbe
 
   def initialize
     log('Starting')
-    @config = YAML.load_file(File.join(Rails.root, 'config', 'scalarm.yml'))['monitoring']
+    @config = Utils.load_database_config['monitoring']
     @db_name = @config['db_name']
     @db = Scalarm::Database::MongoActiveRecord.get_database(@db_name)
     @interval = @config['interval'].to_i
