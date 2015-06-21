@@ -1,4 +1,4 @@
-unless Rails.env.test?
+unless Rails.env.test? and not ENV['SKIP_MONGO_ACTIVE_RECORD_INIT'].blank?
   require 'scalarm/database/core/mongo_active_record'
   require 'scalarm/database/logger'
   require 'scalarm/service_core/logger'
@@ -29,7 +29,10 @@ unless Rails.env.test?
   slog('mongo_active_record', 'Trying to connect to localhost')
 
   begin
-    Scalarm::Database::MongoActiveRecord.connection_init('localhost', config['db_name'])
+    Scalarm::Database::MongoActiveRecord.connection_init('localhost', config['db_name'],
+                                                         username: config['auth_username'],
+                                                         password: config['auth_password']
+    )
   rescue Mongo::ConnectionFailure
     slog('mongo_active_record', 'Cannot connect to local mongodb - fetching mongodb adresses from IS')
     information_service = InformationService.instance
@@ -45,7 +48,10 @@ unless Rails.env.test?
       db_router_url = storage_manager_list.sample
       slog('mongo_active_record', "Connecting to '#{db_router_url}'")
       begin
-        Scalarm::Database::MongoActiveRecord.connection_init(db_router_url, config['db_name'])
+        Scalarm::Database::MongoActiveRecord.connection_init(db_router_url, config['db_name'],
+                                                             username: config['auth_username'],
+                                                             password: config['auth_password']
+        )
       rescue Mongo::ConnectionFailure
         slog('mongo_active_record', 'Cannot connect to remote mongodb')
       end

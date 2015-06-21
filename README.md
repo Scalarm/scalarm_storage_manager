@@ -126,6 +126,11 @@ monitoring:
 # host is optional - the service will take local ip address if host is not provided
 host: localhost
 
+## MongoDB password based authentication - currently supported only by single instance
+## To enable: stop database, uncomment below settings, run rake db_instance:create_auth and start instance
+#auth_username: scalarm
+#auth_password: hidden
+
 # MongoDB instance settings
 db_instance_port: 30000
 db_instance_dbpath: ./../../scalarm_db_data
