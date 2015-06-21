@@ -1,4 +1,4 @@
-unless Rails.env.test? and not ENV['SKIP_MONGO_ACTIVE_RECORD_INIT'].blank?
+unless Rails.env.test?
   require 'scalarm/database/core/mongo_active_record'
   require 'scalarm/database/logger'
   require 'scalarm/service_core/logger'
