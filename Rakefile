@@ -263,7 +263,7 @@ namespace :db_instance do
       ## If you want to add more, you must do it manually
       db_names = [config['db_name'],
                   config['binaries_collection_name'],
-                  config['monitoring']['db_name']].reject {|name| name.nil?}
+                  (config['monitoring'] && config['monitoring']['db_name'])].reject {|name| name.nil?}
 
       ## Add user for each database
       db_names.each do |db_name|

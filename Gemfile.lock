@@ -1,8 +1,8 @@
 GIT
   remote: git://github.com/Scalarm/scalarm-database.git
-  revision: 479475d90234862622e67fe38bdb2d48f8849a28
+  revision: d9caf167f1171224e2a0aa5dbd3f782fbdce4dd2
   specs:
-    scalarm-database (0.3)
+    scalarm-database (0.3.1)
       activesupport
       bson
       bson_ext
@@ -140,7 +140,7 @@ DEPENDENCIES
   newrelic_rpm
   rails (= 4.1.1)
   rubyzip (~> 0.9.9)
-  scalarm-database (>= 0.3)!
+  scalarm-database (>= 0.3.1)!
   scalarm-service_core (~> 0.4.1)!
   sys-filesystem
   thin
