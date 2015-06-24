@@ -206,7 +206,7 @@ class LogBankController < ApplicationController
   private
 
   def load_log_bank
-    @log_bank = Utils.load_database_config
+    @log_bank = MongoLogBank.new(Utils.load_database_config)
     @experiment_id = params[:experiment_id]
     @simulation_id = params[:simulation_id]
   end
