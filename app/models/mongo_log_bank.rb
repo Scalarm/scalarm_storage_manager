@@ -113,7 +113,7 @@ class MongoLogBank
     # initialize connection to mongodb
     @client = MongoClient.new(@config_yaml['mongo_host'], @config_yaml['mongo_port'])
     @db = @client[@config_yaml['db_name']]
-    username = @config_yaml['auth_user']
+    username = @config_yaml['auth_username']
     password = @config_yaml['auth_password']
     @db.authenticate(username, password) if username and password
     @binary_store = Mongo::Grid.new(@db)
