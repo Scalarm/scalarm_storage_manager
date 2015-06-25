@@ -64,6 +64,11 @@ namespace :log_bank do
   task :stop => :environment do
     %x[thin stop -C config/thin.yml]
   end
+
+  desc 'Restart the service'
+  task :restart => [:stop, :start] do
+    puts 'Restarting log_bank...'
+  end
 end
 
 def create_mongo_relative_dir(dir_name)
