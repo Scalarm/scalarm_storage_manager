@@ -12,7 +12,7 @@ class ApplicationController < ActionController::Base
 
   before_filter :authenticate, only: [:welcome]
 
-  unless Rails.env.test?
+  if not Utils.load_database_config['monitoring'].nil? and not Rails.env.test?
     before_filter :start_monitoring
     after_filter :stop_monitoring
     @@probe = MonitoringProbe.new
