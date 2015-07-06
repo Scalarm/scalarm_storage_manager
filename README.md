@@ -153,6 +153,29 @@ socket: /tmp/scalarm_storage_manager.sock
 tag: ScalarmStorageManager
 ```
 
+Starting Storage Manager
+========================
+
+Storage Manager launches database services (Mongo) and storage webserver (LogBank). The databse service can be configured to use single MongoDB instance or multiple MongoDB shards.
+
+Using Storage Manager with single MongoDB instance
+-----------------------------------------------------
+
+Just one command is needed to start Storage Manager in single instance mode:
+
+```
+RAILS_ENV=production rake service:single_start
+```
+
+To stop Storage Manager:
+
+```
+RAILS_ENV=production rake service:single_stop
+```
+
+Using Storage Manager with sharded MongoDB
+------------------------------------------
+
 Storage Manager has a few services to start:
 
 ```
@@ -178,6 +201,17 @@ rake db_router:start
 ```
 rake log_bank:start
 ```
+
+Instead of starting all services manually, you can use single command:
+
+```
+RAILS_ENV=production rake service:start
+```
+
+
+LogBank HTTP proxy
+==================
+
 
 With the configuration as above Storage Manager Log Bank will be listening on linux socket. To make it available for other services we will use a HTTP server - nginx - which will also handle SSL.
 To configure NGINX you basically need to add some information to NGINX configuration, e.g. in the /etc/nginx/conf.d/default.conf file.
