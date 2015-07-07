@@ -161,7 +161,7 @@ tag: ScalarmStorageManager
 Starting Storage Manager
 ========================
 
-Storage Manager launches database services (Mongo) and storage webserver (LogBank). The databse service can be configured to use single MongoDB instance or multiple MongoDB shards.
+Storage Manager launches database services (Mongo) and storage webserver (LogBank). The database service can be configured to use single MongoDB instance or multiple MongoDB shards.
 
 Using Storage Manager with single MongoDB instance
 -----------------------------------------------------
@@ -169,13 +169,13 @@ Using Storage Manager with single MongoDB instance
 Just one command is needed to start Storage Manager in single instance mode:
 
 ```
-RAILS_ENV=production rake service:single_start
+RAILS_ENV=production rake service:start_single
 ```
 
 To stop Storage Manager:
 
 ```
-RAILS_ENV=production rake service:single_stop
+RAILS_ENV=production rake service:stop_single
 ```
 
 Using Storage Manager with sharded MongoDB
