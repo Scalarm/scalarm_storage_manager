@@ -203,7 +203,9 @@ namespace :db_instance do
 
     # 4. register the instance as a db_router - then Experiment managers should connect to it
     information_service = information_service_instance(read_secrets)
-    err, msg = information_service.register_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
+    err, msg = information_service.register_service('db_routers',
+                                                    config['host'] || config['db_router_host'] || LOCAL_IP,
+                                                    config['db_router_port'] || 27017)
 
     if err
       puts "Fatal error while registering a db instance in a single mode '#{err}': #{msg}"
