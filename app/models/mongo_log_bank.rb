@@ -1,5 +1,10 @@
 require 'mongo'
 
+##
+# TODO: possible refactor, see below comment
+# This class uses Mongo on it's own - consider extending
+# MongoActiveRecord from Scalarm::ServiceCore to support
+# binary storage and multiple databases (maybe MongoClient wrapper...)
 class MongoLogBank
   include Mongo
 
@@ -108,6 +113,9 @@ class MongoLogBank
     # initialize connection to mongodb
     @client = MongoClient.new(@config_yaml['mongo_host'], @config_yaml['mongo_port'])
     @db = @client[@config_yaml['db_name']]
+    username = @config_yaml['auth_username']
+    password = @config_yaml['auth_password']
+    @db.authenticate(username, password) if username and password
     @binary_store = Mongo::Grid.new(@db)
     @simulation_coll = @db[@config_yaml['binaries_collection_name']]
   end

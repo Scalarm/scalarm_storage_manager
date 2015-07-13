@@ -1,14 +1,16 @@
 # This is a copy-paste version of the monitoring probe class from the Experiment Manager
 # with one exception in the 'send_measurement' method
 
+require 'scalarm/database/core/mongo_active_record'
+
 class MonitoringProbe
   TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
   def initialize
     log('Starting')
-    @config = YAML.load_file(File.join(Rails.root, 'config', 'scalarm.yml'))['monitoring']
+    @config = Utils.load_database_config['monitoring']
     @db_name = @config['db_name']
-    @db = MongoActiveRecord.get_database(@db_name)
+    @db = Scalarm::Database::MongoActiveRecord.get_database(@db_name)
     @interval = @config['interval'].to_i
     @metrics = @config['metrics'].split(':')
 
