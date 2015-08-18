@@ -1,8 +1,8 @@
 GIT
   remote: git://github.com/Scalarm/scalarm-database.git
-  revision: d9caf167f1171224e2a0aa5dbd3f782fbdce4dd2
+  revision: e1b2c4e5ca028a88796f62b18a409aa3081a9027
   specs:
-    scalarm-database (0.3.1)
+    scalarm-database (0.3.3)
       activesupport
       bson
       bson_ext
@@ -11,9 +11,9 @@ GIT
 
 GIT
   remote: git://github.com/Scalarm/scalarm-service_core.git
-  revision: 3638b0940f9211e40b45f6769726d277099aa389
+  revision: ff30916e355282e9776757cd2d1f1d42190ca604
   specs:
-    scalarm-service_core (0.4.1)
+    scalarm-service_core (0.6.1)
       actionpack (~> 4.1)
       activesupport (~> 4.1)
       rest-client (~> 1.8)
@@ -48,9 +48,9 @@ GEM
       thread_safe (~> 0.1)
       tzinfo (~> 1.1)
     arel (5.0.1.20140414130214)
-    bson (1.10.2)
-    bson_ext (1.10.2)
-      bson (~> 1.10.2)
+    bson (1.12.3)
+    bson_ext (1.12.3)
+      bson (~> 1.12.3)
     builder (3.2.2)
     daemons (1.1.9)
     domain_name (0.5.24)
@@ -72,8 +72,10 @@ GEM
     minitest (5.4.0)
     mocha (1.1.0)
       metaclass (~> 0.0.1)
-    mongo (1.10.2)
-      bson (= 1.10.2)
+    mongo (1.12.3)
+      bson (= 1.12.3)
+    mongo_session_store-rails4 (5.1.0)
+      actionpack (>= 3.1)
     multi_json (1.10.1)
     netrc (0.10.3)
     newrelic_rpm (3.9.3.241)
@@ -136,11 +138,12 @@ DEPENDENCIES
   bson
   bson_ext
   mocha
-  mongo
+  mongo (~> 1.12)
+  mongo_session_store-rails4 (~> 5.1)
   newrelic_rpm
   rails (= 4.1.1)
   rubyzip (~> 0.9.9)
-  scalarm-database (>= 0.3.1)!
-  scalarm-service_core (~> 0.4.1)!
+  scalarm-database (>= 0.3.3)!
+  scalarm-service_core (~> 0.6.1)!
   sys-filesystem
   thin

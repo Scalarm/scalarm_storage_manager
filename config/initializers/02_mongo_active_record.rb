@@ -58,4 +58,8 @@ unless Rails.env.test?
     end
   end
 
+  if Scalarm::Database::MongoActiveRecord.connected?
+    MongoStore::Session.database = Scalarm::Database::MongoActiveRecord.get_database(config['db_name'])
+  end
+
 end
