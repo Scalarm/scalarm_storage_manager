@@ -7,7 +7,10 @@ gem 'rails', '4.1.1'
 gem 'mongo', '~> 1.12'
 gem 'bson'
 gem 'bson_ext'
-gem 'mongo_session_store-rails4', '~> 5.1'
+gem 'mongo_session_store-rails4',
+    git: 'git://github.com/kliput/mongo_session_store.git',
+    branch: 'issue-31-mongo_store-deserialization'
+
 
 gem 'rubyzip', '~> 0.9.9'
 
@@ -26,5 +29,5 @@ gem 'mocha', group: :test
 gem 'scalarm-database', '>= 0.3.3', git: 'git://github.com/Scalarm/scalarm-database.git'
 
 ## for local development - set path to scalarm-core
-# gem 'scalarm-service_core', path: '/home/jliput/Scalarm/scalarm-service_core'
-gem 'scalarm-service_core', '~> 0.6.1', git: 'git://github.com/Scalarm/scalarm-service_core.git'
+gem 'scalarm-service_core', path: '/home/jliput/Scalarm/scalarm-service_core'
+# gem 'scalarm-service_core', '~> 0.7', git: 'git://github.com/Scalarm/scalarm-service_core.git'
