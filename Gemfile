@@ -29,5 +29,5 @@ gem 'mocha', group: :test
 gem 'scalarm-database', '>= 0.3.3', git: 'git://github.com/Scalarm/scalarm-database.git'
 
 ## for local development - set path to scalarm-core
-gem 'scalarm-service_core', path: '/home/jliput/Scalarm/scalarm-service_core'
-# gem 'scalarm-service_core', '~> 0.7', git: 'git://github.com/Scalarm/scalarm-service_core.git'
+# gem 'scalarm-service_core', path: '/home/jliput/Scalarm/scalarm-service_core'
+gem 'scalarm-service_core', '~> 0.7', git: 'git://github.com/Scalarm/scalarm-service_core.git'

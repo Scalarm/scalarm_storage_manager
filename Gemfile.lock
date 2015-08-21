@@ -10,20 +10,21 @@ GIT
       mongo
 
 GIT
+  remote: git://github.com/Scalarm/scalarm-service_core.git
+  revision: 5ea9c70d8acab8073562b12101e46142ebb7dc23
+  specs:
+    scalarm-service_core (0.7)
+      actionpack (~> 4.1)
+      activesupport (~> 4.1)
+      rest-client (~> 1.8)
+
+GIT
   remote: git://github.com/kliput/mongo_session_store.git
   revision: 5416ecf60275909dda0bfb99b77bc7504ee1fc1b
   branch: issue-31-mongo_store-deserialization
   specs:
     mongo_session_store-rails4 (5.1.0)
       actionpack (>= 3.1)
-
-PATH
-  remote: /home/jliput/Scalarm/scalarm-service_core
-  specs:
-    scalarm-service_core (0.7)
-      actionpack (~> 4.1)
-      activesupport (~> 4.1)
-      rest-client (~> 1.8)
 
 GEM
   remote: https://rubygems.org/
@@ -149,6 +150,6 @@ DEPENDENCIES
   rails (= 4.1.1)
   rubyzip (~> 0.9.9)
   scalarm-database (>= 0.3.3)!
-  scalarm-service_core!
+  scalarm-service_core (~> 0.7)!
   sys-filesystem
   thin
