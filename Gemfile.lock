@@ -11,9 +11,9 @@ GIT
 
 GIT
   remote: git://github.com/Scalarm/scalarm-service_core.git
-  revision: d27641594bd60ad55fc4fb67e63637bf87545e19
+  revision: a0488b9a9168a268c17c8e53a4d609a48925346c
   specs:
-    scalarm-service_core (0.8.1)
+    scalarm-service_core (0.9.1)
       actionpack (~> 4.1)
       activesupport (~> 4.1)
       grid-proxy (~> 0.1)
@@ -152,6 +152,6 @@ DEPENDENCIES
   rails (= 4.1.1)
   rubyzip (~> 0.9.9)
   scalarm-database (>= 0.3.3)!
-  scalarm-service_core (~> 0.8.1)!
+  scalarm-service_core (~> 0.9.1)!
   sys-filesystem
   thin
