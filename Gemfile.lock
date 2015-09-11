@@ -19,14 +19,6 @@ GIT
       grid-proxy (~> 0.1)
       rest-client (~> 1.8)
 
-GIT
-  remote: git://github.com/kliput/mongo_session_store.git
-  revision: 5416ecf60275909dda0bfb99b77bc7504ee1fc1b
-  branch: issue-31-mongo_store-deserialization
-  specs:
-    mongo_session_store-rails4 (5.1.0)
-      actionpack (>= 3.1)
-
 GEM
   remote: https://rubygems.org/
   specs:
@@ -147,7 +139,6 @@ DEPENDENCIES
   bson_ext
   mocha
   mongo (~> 1.12)
-  mongo_session_store-rails4!
   newrelic_rpm
   rails (= 4.1.1)
   rubyzip (~> 0.9.9)

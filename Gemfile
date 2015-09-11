@@ -7,9 +7,10 @@ gem 'rails', '4.1.1'
 gem 'mongo', '~> 1.12'
 gem 'bson'
 gem 'bson_ext'
-gem 'mongo_session_store-rails4',
-    git: 'git://github.com/kliput/mongo_session_store.git',
-    branch: 'issue-31-mongo_store-deserialization'
+# Disabling due to bugs
+#gem 'mongo_session_store-rails4',
+#    git: 'git://github.com/kliput/mongo_session_store.git',
+#    branch: 'issue-31-mongo_store-deserialization'
 
 
 gem 'rubyzip', '~> 0.9.9'
