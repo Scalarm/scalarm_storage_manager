@@ -90,6 +90,10 @@ default: &DEFAULT
       #development: true
       # if you want to run and register service in load balancer on other port than default
       #port: "20000"
+  ## If Thin will be used without HTTPS proxy - start Thin with SSL certificates
+  ## NOTE: that requires usage only "port" option in thin.yml without "socket"
+  #service_crt: ./config/scalarm-cert.pem
+  #service_key: ./config/scalarm-cert-key.pem
 
 development:
   <<: *DEFAULT

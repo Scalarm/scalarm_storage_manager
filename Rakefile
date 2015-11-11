@@ -57,7 +57,14 @@ end
 namespace :log_bank do
   desc 'Start the service'
   task :start => ['service:ensure_config', :environment] do
-    %x[thin start -d -C config/thin.yml]
+    if Rails.application.secrets.service_key.nil?
+      command = "thin start -d -C config/thin.yml"
+    else
+      command = "thin start -d --ssl --ssl-key-file #{Rails.application.secrets.service_key} --ssl-cert-file #{Rails.application.secrets.service_crt} -C config/thin.yml"
+    end
+
+    puts command
+    %x[#{command}]
   end
 
   desc 'Stop the service'
