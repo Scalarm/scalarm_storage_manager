@@ -436,14 +436,17 @@ end
 
 
 def start_instance_cmd(config, auth=false)
-  generic_start_instance_cmd(config, config['db_instance_port'], true, auth)
+  bind_ip = (config['host'] || LOCAL_IP)
+  generic_start_instance_cmd(config, bind_ip, config['db_instance_port'], true, auth)
 end
 
 def start_single_instance_cmd(config, auth=false)
-  generic_start_instance_cmd(config, (config['db_router_port'] || 27017), false, auth)
+  bind_ip = (config['host'] || config['db_router_host'] || LOCAL_IP)
+  bind_port = (config['db_router_port'] || 27017)
+  generic_start_instance_cmd(config, bind_ip, bind_port, false, auth)
 end
 
-def generic_start_instance_cmd(config, port, shardsrv=true, auth=false)
+def generic_start_instance_cmd(config, bind_ip, port, shardsrv=true, auth=false)
   log_append = File.exist?(config['db_instance_logpath']) ? '--logappend' : ''
 
   fs_stat = Sys::Filesystem.stat('/')
@@ -452,7 +455,7 @@ def generic_start_instance_cmd(config, port, shardsrv=true, auth=false)
 
   ## notice: removed --quiet at 19-06-2015
   ["cd #{DB_BIN_PATH}",
-    "./mongod #{shardsrv ? "--shardsvr" : ''} --bind_ip #{config['host'] || LOCAL_IP} --port #{port} " +
+    "./mongod #{shardsrv ? "--shardsvr" : ''} --bind_ip #{bind_ip} --port #{port} " +
       "--dbpath #{config['db_instance_dbpath']} --logpath #{config['db_instance_logpath']} " +
       "--cpu --rest --httpinterface --fork #{log_append} #{smallfiles ? '--smallfiles' : ''} " +
         " #{auth ? '--auth' : '--noauth'}"
