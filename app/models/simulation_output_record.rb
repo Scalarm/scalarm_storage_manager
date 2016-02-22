@@ -14,7 +14,6 @@ class SimulationOutputRecord < Scalarm::Database::MongoActiveRecord
   @@binary_store = Mongo::Grid.new(SimulationOutputRecord.get_database(@@config['db_name']))
 
   use_collection @@config['binaries_collection_name']
-  disable_ids_auto_convert!
 
   def file_object
     self.output_file_id.nil? ? nil : @@binary_store.get(self.output_file_id)
