@@ -90,7 +90,7 @@ class LogBankController < ApplicationController
   end
 
   def delete_simulation_output
-    @log_bank.delete_simulation_output(experiment_id, simulation_id)
+    @log_bank.delete_simulation_output(@experiment_id, @simulation_id)
 
     render inline: 'Delete completed'
   end
@@ -215,7 +215,7 @@ class LogBankController < ApplicationController
   # Only the experiment owner or a person mentioned on the shared with experiment
   # can get output
   def authorize_get
-    if @current_user.nil? or @experiment_id.nil?
+    if @experiment_id.nil? or (@current_user.nil? and @sm_user.nil?)
       render inline: '', status: 404
       return 
     end
@@ -264,14 +264,27 @@ class LogBankController < ApplicationController
 
   # only the experiment owner can delete data
   def authorize_delete
-    if @current_user.nil? or @experiment_id.nil?
+    if @experiment_id.nil? or (@current_user.nil? and @sm_user.nil?)
       render inline: '', status: 404
       return
     end
       
     experiment = Experiment.find_by_id(@experiment_id)
-    unless experiment.owned_by?(@current_user) 
-      render inline: '', status: 403
+
+    if not @current_user.nil?
+
+      unless experiment.owned_by?(@current_user) or experiment.shared_with?(@current_user)
+        render inline: 'This client does not have permission access this experiment', status: 403
+      end
+
+    elsif not @sm_user.nil?
+
+      unless @sm_user.experiment_id.to_s == experiment.id.to_s
+        render inline: 'This client does not have permission access this experiment', status: 403
+      end
+
+    else
+      render inline: 'Cannot authenticate client', status: 403
     end
   end
 
