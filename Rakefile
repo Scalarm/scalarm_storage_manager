@@ -121,7 +121,7 @@ namespace :db_instance do
 
         begin
           response = run_command_on_local_router(command, information_service, config)
-        rescue Exception => e
+        rescue => e
           puts "Error occured on run command on local router: #{e}"
         end
         puts "Command #{request_counter} - #{response.inspect}"
@@ -163,7 +163,7 @@ namespace :db_instance do
 
             begin
               response = run_command_on_local_router(command, information_service, config)
-            rescue Exception => e
+            rescue => e
               puts "Error occured #{e}"
             end
 
@@ -340,7 +340,7 @@ namespace :db_config_service do
 
         puts db.command(command).inspect
       end
-    rescue Exception => e
+    rescue => e
       puts "An exception occurred during execution of the 'addShard' command: #{e}"
     end
 
@@ -500,7 +500,7 @@ def run_command_on_local_router(command, information_service, config)
       result = db.command(command)
       puts result.inspect
       stop_router(config) if not router_run
-    rescue Exception => e
+    rescue => e
       puts "An error occurred during command execution on MongoDB: #{e.inspect}"
       result['ok'] = 0
     end
