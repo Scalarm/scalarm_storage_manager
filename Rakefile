@@ -28,6 +28,42 @@ LOCAL_IP = UDPSocket.open {|s| begin s.connect("64.233.187.99", 1); s.addr.last 
 #   ENV['SKIP_MONGO_ACTIVE_RECORD_INIT'] = '1'
 # end
 
+task :build_indexes do
+  require 'scalarm/service_core/initializers/mongo_active_record_initializer'
+  puts 'Processing indexed attributes of collections...'
+
+  MongoActiveRecordInitializer.start(Rails.application.secrets.database)
+
+  mongo_active_records = Scalarm::Database::MongoActiveRecord.descendants.select do |c|
+    not (c.name.include?("CappedMongoActiveRecord") or c.name.include?("EncryptedMongoActiveRecord"))
+  end.map{|c| c.name}.compact.map do |c_name|
+    Object.const_get(c_name)
+  end
+
+  mongo_active_records.each do |mar|
+    puts "Processing '#{mar.name}' - #{mar._indexed_attributes} ..."
+    record_collection = mar.collection
+
+    mar._indexed_attributes.each do |attr|
+      puts "Checking if an index for '#{attr}' exists ..."
+      index_exist = false
+
+      record_collection.index_information.each do |_, index_info|
+        if index_info["key"].include?(attr.to_s)
+          index_exist = true
+        end
+      end
+
+      unless index_exist
+        puts "Index for '#{attr}' does not exist so we create it"
+        record_collection.ensure_index(attr.to_s)
+      else
+        puts "Index for '#{attr}' exists"
+      end
+    end
+  end
+end
+
 namespace :service do
   task :start => ['service:ensure_config',
                   'db_instance:start', 'db_config_service:start', 'log_bank:start' ] do
@@ -616,4 +652,64 @@ def information_service_instance(config)
       config['information_service_pass'],
       !!config['information_service_development']
   )
+end
+
+namespace :get do
+  task :mongodb do
+    install_mongodb
+  end
+end
+
+def install_mongodb
+  `rm -rf mongodb`
+  puts 'Downloading MongoDB...'
+  base_name = get_mongodb
+  puts 'Unpacking MongoDB and copying files...'
+  `tar -zxvf #{base_name}.tgz`
+  raise "Cannot unpack #{base_name}.tgz archive" unless $?.to_i == 0
+  `mv #{base_name} mongodb`
+  raise "Cannot copy #{base_name} folder" unless $?.to_i == 0
+  `rm -r #{base_name}.tgz`
+  puts 'MongoDB has been installed in Scalarm directory'
+end
+
+def get_mongodb(version='3.2.0')
+  os, arch = os_version
+  mongo_name = "mongodb-#{os}-#{arch}-#{version}"
+  download_file_https('fastdl.mongodb.org', "/#{os}/mongodb-#{os}-#{arch}-#{version}.tgz", "#{mongo_name}.tgz")
+  mongo_name
+end
+
+def os_version
+  require 'rbconfig'
+  os_arch = RbConfig::CONFIG['arch']
+  os = case os_arch
+    when /darwin/
+      'osx'
+    when /cygwin|mswin|mingw|bccwin|wince|emx/
+      'win32'
+    else
+      'linux'
+  end
+  arch = case os_arch
+    when /x86_64/
+      'x86_64'
+    when /i686/
+      'i686'
+  end
+  [os, arch]
+end
+
+def download_file_https(domain, path, name)
+  require 'net/https'
+  address = "https://#{domain}/#{path}"
+  puts "Fetching #{address}..."
+  Net::HTTP.start(domain) do |http|
+      resp = http.get(path)
+      open(name, "wb") do |file|
+          file.write(resp.body)
+      end
+  end
+  puts "Downloaded #{address} -> #{name}"
+  name
 end
