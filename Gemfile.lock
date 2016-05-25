@@ -1,19 +1,19 @@
 GIT
   remote: git://github.com/Scalarm/scalarm-database.git
-  revision: 754743668bd7468b37c25c2f5b774ab8915bfd33
+  revision: 52084ad91ded3668ab1ac26ac3501cd5b1806d63
   specs:
-    scalarm-database (1.4.0)
+    scalarm-database (2.0.0)
       activesupport
       bson
       bson_ext
       encryptor (= 1.3.0)
-      mongo
+      mongo (= 2.2.5)
 
 GIT
   remote: git://github.com/Scalarm/scalarm-service_core.git
-  revision: e40fbda8f6fc02e1fe8d7ef4e58cf7183733e0c2
+  revision: 08546c5a61b6f3787aeb6a52cb54c3ecd1118248
   specs:
-    scalarm-service_core (1.3)
+    scalarm-service_core (2.0.0)
       actionpack (~> 4.1)
       activesupport (~> 4.1)
       grid-proxy (~> 0.1)
@@ -58,9 +58,8 @@ GEM
       thread_safe (~> 0.3, >= 0.3.4)
       tzinfo (~> 1.1)
     arel (6.0.3)
-    bson (1.12.5)
-    bson_ext (1.12.5)
-      bson (~> 1.12.5)
+    bson (4.1.1)
+    bson_ext (1.5.1)
     builder (3.2.2)
     concurrent-ruby (1.0.2)
     daemons (1.2.3)
@@ -87,8 +86,8 @@ GEM
     minitest (5.9.0)
     mocha (1.1.0)
       metaclass (~> 0.0.1)
-    mongo (1.12.5)
-      bson (= 1.12.5)
+    mongo (2.2.5)
+      bson (~> 4.0)
     netrc (0.11.0)
     newrelic_rpm (3.15.2.317)
     nokogiri (1.6.7.2)
@@ -151,15 +150,12 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  bson
-  bson_ext
   mocha
-  mongo (~> 1.12)
   newrelic_rpm
   rails (~> 4.2.6)
   rubyzip (~> 0.9.9)
-  scalarm-database (~> 1.4.0)!
-  scalarm-service_core (~> 1.3.0)!
+  scalarm-database (~> 2.0.0)!
+  scalarm-service_core (~> 2.0.0)!
   sys-filesystem
   thin
 
