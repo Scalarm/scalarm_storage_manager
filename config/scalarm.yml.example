@@ -6,7 +6,6 @@ db_secret_key: "QjqjFK}7|Xw8DDMUP-O$yp"
 ## where log bank should store content
 mongo_host: 'localhost'
 mongo_port: 27017
-binaries_collection_name: 'simulation_files'
 
 ## MongoDB settings
 ## host is optional - the service will take local ip address if host is not provided

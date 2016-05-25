@@ -3,14 +3,13 @@
 Scalarm Storage Manager
 =======================
 
-It constitutes a persistence layer for the Scalarm platform. It provides two services: a clustered MongoDB and
-a Log Bank for saving binary output from simulations within data farming experiments.
+It is a storage layer for application outputs for the Scalarm platform. It provides two services: a clustered MongoDB and a Log Bank for saving binary output from simulations within data farming experiments.
 
 To run the services you need to fulfill the following requirements:
 
 Ruby version
 ------------
-Currently we use and test Scalarm against MRI 2.1.2 but the Rubinius version of Ruby should be good as well.
+Currently we use and test Scalarm against MRI 2.3 but the Rubinius version of Ruby should be good as well.
 
 ```sh
 curl -L https://get.rvm.io | bash
@@ -20,7 +19,7 @@ Agree on anything they ask :)
 
 ```sh
 source $HOME/.rvm/scripts/rvm
-rvm install 2.1.2
+rvm install 2.3
 ```
 
 Also agree on anything. After the last command, rubinius version of ruby will be downloaded and installed from source.
@@ -118,7 +117,6 @@ In the second file, 'scalarm.yml', you put the following information in the YAML
 mongo_host: 'localhost'
 mongo_port: 27017
 db_name: 'scalarm_db'
-binaries_collection_name: 'simulation_files'
 
 monitoring:
   db_name: 'scalarm_monitoring'

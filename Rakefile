@@ -312,7 +312,7 @@ namespace :db_instance do
       ## Databases specified in config file
       ## If you want to add more, you must do it manually
       db_names = [config['db_name'],
-                  config['binaries_collection_name'],
+                  'simulation_files',
                   (config['monitoring'] && config['monitoring']['db_name'])].reject {|name| name.nil?}
 
       ## Add user for each database

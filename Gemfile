@@ -3,16 +3,6 @@ source 'https://rubygems.org'
 # Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
 gem 'rails', '~> 4.2.6'
 
-# DB related gems - no active record, just MongoDB
-gem 'mongo', '~> 1.12'
-gem 'bson'
-gem 'bson_ext'
-# Disabling due to bugs
-#gem 'mongo_session_store-rails4',
-#    git: 'git://github.com/kliput/mongo_session_store.git',
-#    branch: 'issue-31-mongo_store-deserialization'
-
-
 gem 'rubyzip', '~> 0.9.9'
 
 # Default web server
@@ -26,9 +16,9 @@ gem 'sys-filesystem'
 gem 'mocha', group: :test
 
 ## for local development - set path to scalarm-database
-# gem 'scalarm-database', path: '/home/jliput/Scalarm/scalarm-database'
-gem 'scalarm-database', '~> 1.4.0', git: 'git://github.com/Scalarm/scalarm-database.git'
+# gem 'scalarm-database', path: '/vagrant/scalarm-database'
+gem 'scalarm-database', '~> 2.0.0', git: 'git://github.com/Scalarm/scalarm-database.git'
 
 ## for local development - set path to scalarm-core
-# gem 'scalarm-service_core', path: '/home/jliput/Scalarm/scalarm-service_core'
-gem 'scalarm-service_core', '~> 1.3.0', git: 'git://github.com/Scalarm/scalarm-service_core.git'
+# gem 'scalarm-service_core', path: '/vagrant/scalarm-service_core'
+gem 'scalarm-service_core', '~> 2.0.0', git: 'git://github.com/Scalarm/scalarm-service_core.git'

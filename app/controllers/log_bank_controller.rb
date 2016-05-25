@@ -47,7 +47,11 @@ class LogBankController < ApplicationController
 
   def get_simulation_output
     # just stream previously save binary data from the backend using included module
-    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_id: @simulation_id).first
+    sim_record = SimulationOutputRecord.where(
+        experiment_id: @experiment_id,
+        simulation_id: @simulation_id,
+        type: 'binary'
+    ).first
     file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
@@ -57,17 +61,17 @@ class LogBankController < ApplicationController
       response.headers['Content-Type'] = 'Application/octet-stream'
       response.headers['Content-Disposition'] = 'attachment; filename="' + file_name + '"'
 
-      file_object.each do |data_chunk|
-        response.stream.write data_chunk
-      end
-
+      response.stream.write file_object
+      # file_object.each do |data_chunk|
+      #   response.stream.write data_chunk
+      # end
       response.stream.close
     end
 
   end
 
   def get_simulation_output_size
-    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_id: @simulation_id).first
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_id: @simulation_id, type: 'binary').first
     file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
@@ -83,20 +87,37 @@ class LogBankController < ApplicationController
     unless params[:file] && (tmpfile = params[:file].tempfile)
       render inline: 'No file provided', status: 400
     else
-      @log_bank.put_simulation_output(@experiment_id, @simulation_id, tmpfile)
+      sim_record = SimulationOutputRecord.new(
+          experiment_id: experiment_id,
+          simulation_id: simulation_id,
+          type: 'binary'
+      )
+      sim_record.set_file_object(tmpfile)
+
+      sim_record.save
 
       render inline: 'Upload completed'
     end
   end
 
   def delete_simulation_output
-    @log_bank.delete_simulation_output(@experiment_id, @simulation_id)
+    SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_id: @simulation_id, type: 'binary').first.destroy
 
     render inline: 'Delete completed'
   end
 
   def get_experiment_output
-    output_size = @log_bank.get_experiment_output_size(@experiment_id)
+    output_size = 0
+
+    SimulationOutputRecord.where(experiment_id: @experiment_id).each do |simulation_doc|
+      if simulation_doc.include?('file_size')
+        output_size += simulation_doc['file_size']
+      else
+        if not simulation_doc.file_object.nil?
+          output_size += simulation_doc.file_object.data.size
+        end
+      end
+    end
 
     if output_size > @@experiment_size_threshold
       render inline: "Experiment size: #{output_size / (1024**3)} [MB] - it is too large. Please, download subsequent simulation results manually", status: 406
@@ -134,29 +155,30 @@ class LogBankController < ApplicationController
 
   def get_experiment_output_size
     output_size = 0
-    experiment = Experiment.find_by_id(@experiment_id)
 
-    1.to_i.upto(experiment.size) do |simulation_id|
-      file_object = @log_bank.get_simulation_output(@experiment_id, simulation_id.to_s)
-      output_size += file_object.file_length unless file_object.nil?
+    SimulationOutputRecord.where(experiment_id: @experiment_id).each do |simulation_doc|
+      if simulation_doc.include?('file_size')
+        output_size += simulation_doc['file_size']
+      else
+        if not simulation_doc.file_object.nil?
+          output_size += simulation_doc.file_object.data.size
+        end
+      end
     end
 
     render json: { size: output_size }
   end
 
   def delete_experiment_output
-    experiment = Experiment.find_by_id(@experiment_id)
-    1.to_i.upto(experiment.size) do |simulation_id|
-      #logger.info("DELETE experiment id: #{experiment_id}, simulation_id: #{simulation_id}")
-      @log_bank.delete_simulation_output(@experiment_id, simulation_id.to_s)
-      @log_bank.delete_simulation_stdout(@experiment_id, simulation_id.to_s)
+    SimulationOutputRecord.where(experiment_id: @experiment_id).each do |doc|
+      doc.destroy
     end
 
     render inline: 'DELETE experiment action completed'
   end
 
   def get_simulation_stdout
-    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_id).first
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_id, type: 'stdout').first
     file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
@@ -176,7 +198,7 @@ class LogBankController < ApplicationController
   end
 
   def get_simulation_stdout_size
-    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_id).first
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_id, type: 'stdout').first
     file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
@@ -190,14 +212,26 @@ class LogBankController < ApplicationController
     unless params[:file] && (tmpfile = params[:file].tempfile)
       render inline: 'No file provided', status: 400
     else
-      @log_bank.put_simulation_stdout(@experiment_id, @simulation_id, tmpfile)
+      sim_record = SimulationOutputRecord.new(
+          experiment_id: experiment_id,
+          simulation_id: simulation_id,
+          type: 'stdout'
+      )
+      sim_record.set_file_object(tmpfile)
+
+      sim_record.save
 
       render inline: 'Upload completed'
     end
   end
 
   def delete_simulation_stdout
-    @log_bank.delete_simulation_stdout(@experiment_id, @simulation_id)
+    SimulationOutputRecord.where(
+        experiment_id: experiment_id,
+        simulation_id: simulation_id,
+        type: 'stdout'
+    ).first.destroy
+
 
     render inline: 'Delete completed'
   end
@@ -206,7 +240,6 @@ class LogBankController < ApplicationController
   private
 
   def load_log_bank
-    @log_bank = MongoLogBank.new(Utils.load_database_config)
     @experiment_id = params[:experiment_id]
     @simulation_id = params[:simulation_id]
   end

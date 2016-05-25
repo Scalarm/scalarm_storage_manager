@@ -29,5 +29,4 @@ class AuthenticationTest < ActionDispatch::IntegrationTest
   end
 
   Scalarm::ServiceCore::TestUtils::AuthenticationTestCases.define_all_tests
-
 end
