@@ -61,6 +61,11 @@ GEM
     bson (4.1.1)
     bson_ext (1.5.1)
     builder (3.2.2)
+    ci_reporter (2.0.0)
+      builder (>= 2.1.2)
+    ci_reporter_minitest (1.0.0)
+      ci_reporter (~> 2.0)
+      minitest (~> 5.0)
     concurrent-ruby (1.0.2)
     daemons (1.2.3)
     domain_name (0.5.20160310)
@@ -150,6 +155,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  ci_reporter_minitest
   mocha
   newrelic_rpm
   rails (~> 4.2.6)
@@ -158,6 +164,3 @@ DEPENDENCIES
   scalarm-service_core (~> 2.0.0)!
   sys-filesystem
   thin
-
-BUNDLED WITH
-   1.11.2

@@ -8,6 +8,7 @@ include Mongo
 # Add your own tasks in files placed in lib/tasks ending in .rake,
 # for example lib/tasks/capistrano.rake, and they will automatically be available to Rake.
 
+require 'ci/reporter/rake/minitest'
 require File.expand_path('../config/application', __FILE__)
 require File.expand_path('../app/models/load_balancer_registration.rb', __FILE__)
 
@@ -27,6 +28,22 @@ LOCAL_IP = UDPSocket.open {|s| begin s.connect("64.233.187.99", 1); s.addr.last 
 # task :disable_mongo_active_record_init do
 #   ENV['SKIP_MONGO_ACTIVE_RECORD_INIT'] = '1'
 # end
+
+task :check_test_env do
+  raise 'RAILS_ENV not set to test' unless Rails.env.test?
+end
+
+namespace :test do |ns|
+  # add dependency to check_test_env for each test task
+  ns.tasks.each do |t|
+    task_name = t.to_s.match(/test:(.*)/)[1]
+    task task_name.to_sym => [:check_test_env] unless task_name.blank?
+  end
+end
+
+namespace :ci do
+  task :all => ['ci:setup:minitest', 'test']
+end
 
 task :build_indexes do
   require 'scalarm/service_core/initializers/mongo_active_record_initializer'

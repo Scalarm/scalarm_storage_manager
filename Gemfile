@@ -14,6 +14,7 @@ gem 'newrelic_rpm'
 gem 'sys-filesystem'
 
 gem 'mocha', group: :test
+gem 'ci_reporter_minitest', group: :test
 
 ## for local development - set path to scalarm-database
 # gem 'scalarm-database', path: '/vagrant/scalarm-database'
