@@ -4,7 +4,7 @@
 #name: user specified name
 #description: (optional) a longer description of the experiment
 #is_running: bool
-#simulation_id: id of a simulation which is executed during the experiment
+#simulation_idx: id/index of a simulation which is executed during the experiment
 #user_id: ObjectId
 #time_constraint_in_sec: integer - threshold for simulation execution
 #experiment_input: JSON structure defining parametrization of the used simulation 

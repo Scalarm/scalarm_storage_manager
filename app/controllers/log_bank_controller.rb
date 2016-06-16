@@ -49,7 +49,7 @@ class LogBankController < ApplicationController
     # just stream previously save binary data from the backend using included module
     sim_record = SimulationOutputRecord.where(
         experiment_id: @experiment_id,
-        simulation_id: @simulation_id,
+        simulation_idx: @simulation_idx,
         type: 'binary'
     ).first
     file_object = sim_record.nil? ? nil : sim_record.file_object
@@ -57,7 +57,7 @@ class LogBankController < ApplicationController
     if file_object.nil?
       render inline: 'Required file not found', status: 404
     else
-      file_name = "experiment_#{@experiment_id}_simulation_#{@simulation_id}.tar.gz"
+      file_name = "experiment_#{@experiment_id}_simulation_#{@simulation_idx}.tar.gz"
       response.headers['Content-Type'] = 'Application/octet-stream'
       response.headers['Content-Disposition'] = 'attachment; filename="' + file_name + '"'
 
@@ -71,7 +71,7 @@ class LogBankController < ApplicationController
   end
 
   def get_simulation_output_size
-    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_id: @simulation_id, type: 'binary').first
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_idx: @simulation_idx, type: 'binary').first
     file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
@@ -89,7 +89,7 @@ class LogBankController < ApplicationController
     else
       sim_record = SimulationOutputRecord.new(
           experiment_id: experiment_id,
-          simulation_id: simulation_id,
+          simulation_idx: simulation_idx,
           type: 'binary'
       )
       sim_record.set_file_object(tmpfile)
@@ -101,7 +101,7 @@ class LogBankController < ApplicationController
   end
 
   def delete_simulation_output
-    SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_id: @simulation_id, type: 'binary').first.destroy
+    SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_idx: @simulation_idx, type: 'binary').first.destroy
 
     render inline: 'Delete completed'
   end
@@ -178,13 +178,13 @@ class LogBankController < ApplicationController
   end
 
   def get_simulation_stdout
-    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_id, type: 'stdout').first
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_idx, type: 'stdout').first
     file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
       render inline: 'Required file not found', status: 404
     else
-      file_name = "experiment_#{@experiment_id}_simulation_#{@simulation_id}_stdout.txt"
+      file_name = "experiment_#{@experiment_id}_simulation_#{@simulation_idx}_stdout.txt"
       response.headers['Content-Type'] = 'text/plain'
       response.headers['Content-Disposition'] = 'attachment; filename="' + file_name + '"'
 
@@ -198,7 +198,7 @@ class LogBankController < ApplicationController
   end
 
   def get_simulation_stdout_size
-    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_id, type: 'stdout').first
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_idx, type: 'stdout').first
     file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
@@ -214,7 +214,7 @@ class LogBankController < ApplicationController
     else
       sim_record = SimulationOutputRecord.new(
           experiment_id: experiment_id,
-          simulation_id: simulation_id,
+          simulation_idx: simulation_idx,
           type: 'stdout'
       )
       sim_record.set_file_object(tmpfile)
@@ -228,7 +228,7 @@ class LogBankController < ApplicationController
   def delete_simulation_stdout
     SimulationOutputRecord.where(
         experiment_id: experiment_id,
-        simulation_id: simulation_id,
+        simulation_idx: simulation_idx,
         type: 'stdout'
     ).first.destroy
 
@@ -241,7 +241,7 @@ class LogBankController < ApplicationController
 
   def load_log_bank
     @experiment_id = params[:experiment_id]
-    @simulation_id = params[:simulation_id]
+    @simulation_idx = params[:simulation_idx]
   end
 
   ##
