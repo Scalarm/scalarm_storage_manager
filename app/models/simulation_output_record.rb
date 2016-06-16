@@ -33,9 +33,9 @@ class SimulationOutputRecord < Scalarm::Database::MongoActiveRecord
   def file_object_name
     case self.type
       when 'binary'
-        "simulation_#{self.simulation_id}.tar.gz"
+        "simulation_#{self.simulation_idx}.tar.gz"
       when 'stdout'
-        "simulation_#{self.simulation_id}_stdout.txt"
+        "simulation_#{self.simulation_idx}_stdout.txt"
       else
         nil
     end
