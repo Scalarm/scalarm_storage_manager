@@ -84,7 +84,7 @@ class LogBankController < ApplicationController
   ##
   # PUT, parameters: file - binary simulation output
   def put_simulation_output
-    unless params[:file] && (tmpfile = params[:file].tempfile)
+    unless params[:file] && (tmpfile = params[:file])
       render inline: 'No file provided', status: 400
     else
       sim_record = SimulationOutputRecord.new(
@@ -209,7 +209,7 @@ class LogBankController < ApplicationController
   end
 
   def put_simulation_stdout
-    unless params[:file] && (tmpfile = params[:file].tempfile)
+    unless params[:file] && (tmpfile = params[:file])
       render inline: 'No file provided', status: 400
     else
       sim_record = SimulationOutputRecord.new(

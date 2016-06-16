@@ -12,7 +12,7 @@ class SimulationOutputRecord < Scalarm::Database::MongoActiveRecord
   use_collection 'simulation_files'
 
   def set_file_object(tmpfile)
-    file = Grid::File.new(tmpfile.read, filename: tmpfile.original_filename, metadata: { size: tmpfile.size })
+    file = Grid::File.new(tmpfile.tempfile.read, filename: tmpfile.original_filename, metadata: { size: tmpfile.tempfile.size })
     @attributes['output_file_id'] = @@binary_store.insert_one(file).to_s
     @attributes['file_size'] = tmpfile.size
   end
