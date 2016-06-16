@@ -213,8 +213,8 @@ class LogBankController < ApplicationController
       render inline: 'No file provided', status: 400
     else
       sim_record = SimulationOutputRecord.new(
-          experiment_id: experiment_id,
-          simulation_idx: simulation_idx,
+          experiment_id: @experiment_id,
+          simulation_idx: @simulation_idx,
           type: 'stdout'
       )
       sim_record.set_file_object(tmpfile)
