@@ -241,7 +241,7 @@ class LogBankController < ApplicationController
 
   def load_log_bank
     @experiment_id = params[:experiment_id]
-    @simulation_idx = params[:simulation_idx]
+    @simulation_idx = params[:simulation_id]
   end
 
   ##
