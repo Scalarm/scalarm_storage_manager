@@ -14,14 +14,14 @@ class SimulationOutputRecord < Scalarm::Database::MongoActiveRecord
   def set_file_object(tmpfile)
     file = Grid::File.new(tmpfile.tempfile.read, filename: tmpfile.original_filename, metadata: { size: tmpfile.tempfile.size })
     @attributes['output_file_id'] = @@binary_store.insert_one(file).to_s
-    @attributes['file_size'] = tmpfile.size
+    @attributes['file_size'] = tmpfile.tempfile.size
   end
 
   def file_object
     if self.output_file_id.nil?
       nil
     else
-      file = @@binary_store.find_one(_id: self.simulation_binaries_id)
+      file = @@binary_store.find_one(_id: self.output_file_id)
       if file.nil?
         nil
       else
