@@ -201,7 +201,7 @@ class LogBankController < ApplicationController
     sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_idx: @simulation_idx, type: 'stdout').first
     file_object = sim_record.nil? ? nil : sim_record.file_object
 
-    if sim_record.file_size.nil? and file_object.nil?
+    if sim_record.nil? or (sim_record.file_size.nil? and file_object.nil?)
       render inline: 'Required file not found', status: 404
     else
       render json: { size: sim_record.file_size || file_object.file_length }
