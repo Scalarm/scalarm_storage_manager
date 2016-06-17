@@ -188,10 +188,7 @@ class LogBankController < ApplicationController
       response.headers['Content-Type'] = 'text/plain'
       response.headers['Content-Disposition'] = 'attachment; filename="' + file_name + '"'
 
-      file_object.each do |data_chunk|
-        response.stream.write data_chunk
-      end
-
+      response.stream.write file_object
       response.stream.close
     end
 
