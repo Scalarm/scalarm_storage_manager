@@ -178,7 +178,7 @@ class LogBankController < ApplicationController
   end
 
   def get_simulation_stdout
-    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_idx, type: 'stdout').first
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_idx: @simulation_idx, type: 'stdout').first
     file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
@@ -198,7 +198,7 @@ class LogBankController < ApplicationController
   end
 
   def get_simulation_stdout_size
-    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_idx, type: 'stdout').first
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_idx: @simulation_idx, type: 'stdout').first
     file_object = sim_record.nil? ? nil : sim_record.file_object
 
     if file_object.nil?
