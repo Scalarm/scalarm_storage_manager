@@ -221,8 +221,8 @@ class LogBankController < ApplicationController
 
   def delete_simulation_stdout
     SimulationOutputRecord.where(
-        experiment_id: experiment_id,
-        simulation_idx: simulation_idx,
+        experiment_id: @experiment_id,
+        simulation_idx: @simulation_idx,
         type: 'stdout'
     ).first.destroy
 
