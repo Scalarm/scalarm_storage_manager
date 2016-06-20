@@ -62,9 +62,6 @@ class LogBankController < ApplicationController
       response.headers['Content-Disposition'] = 'attachment; filename="' + file_name + '"'
 
       response.stream.write file_object
-      # file_object.each do |data_chunk|
-      #   response.stream.write data_chunk
-      # end
       response.stream.close
     end
 
@@ -72,12 +69,12 @@ class LogBankController < ApplicationController
 
   def get_simulation_output_size
     sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_idx: @simulation_idx, type: 'binary').first
-    file_object = sim_record.nil? ? nil : sim_record.file_object
+    file_data = sim_record.nil? ? nil : sim_record.file_object
 
-    if file_object.nil?
+    if sim_record.nil? or (sim_record.file_size.nil? and file_data.nil?)
       render inline: 'Required file not found', status: 404
     else
-      render json: { size: file_object.file_length }
+      render json: { size: sim_record.file_size || file_data.size }
     end
   end
 
@@ -161,7 +158,7 @@ class LogBankController < ApplicationController
         output_size += simulation_doc['file_size']
       else
         if not simulation_doc.file_object.nil?
-          output_size += simulation_doc.file_object.data.size
+          output_size += simulation_doc.file_object.size
         end
       end
     end
@@ -179,16 +176,16 @@ class LogBankController < ApplicationController
 
   def get_simulation_stdout
     sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_idx: @simulation_idx, type: 'stdout').first
-    file_object = sim_record.nil? ? nil : sim_record.file_object
+    file_data = sim_record.nil? ? nil : sim_record.file_object
 
-    if file_object.nil?
+    if file_data.nil?
       render inline: 'Required file not found', status: 404
     else
       file_name = "experiment_#{@experiment_id}_simulation_#{@simulation_idx}_stdout.txt"
       response.headers['Content-Type'] = 'text/plain'
       response.headers['Content-Disposition'] = 'attachment; filename="' + file_name + '"'
 
-      response.stream.write file_object
+      response.stream.write file_data
       response.stream.close
     end
 
@@ -196,12 +193,12 @@ class LogBankController < ApplicationController
 
   def get_simulation_stdout_size
     sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_idx: @simulation_idx, type: 'stdout').first
-    file_object = sim_record.nil? ? nil : sim_record.file_object
+    file_data = sim_record.nil? ? nil : sim_record.file_object
 
-    if sim_record.nil? or (sim_record.file_size.nil? and file_object.nil?)
+    if sim_record.nil? or (sim_record.file_size.nil? and file_data.nil?)
       render inline: 'Required file not found', status: 404
     else
-      render json: { size: sim_record.file_size || file_object.file_length }
+      render json: { size: sim_record.file_size || file_data.size }
     end
   end
 
