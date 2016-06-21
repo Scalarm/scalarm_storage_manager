@@ -131,7 +131,7 @@ class LogBankController < ApplicationController
               # Create a new entry with some arbitrary name
               zos.put_next_entry("experiment_#{@experiment_id}/#{sim_record.file_object_name}")
               # Add the contents of the file, don't read the stuff likewise if its binary, instead use direct IO
-              zos.print file_object.read.force_encoding('UTF-8')
+              zos.print file_object.force_encoding('UTF-8')
             end
           end
         end
