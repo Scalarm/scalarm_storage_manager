@@ -1,7 +1,7 @@
 # Attributes:
 #_id: id
 #experiment_id: ObjectId
-#simulation_id: ObjectId - when this record denotes binary results of a simulation run this is simulation_id
+#simulation_idx: ObjectId - when this record denotes binary results of a simulation run this is simulation_id
 #output_file_id: ObjectId - id of a file stored in mongodb GridFS
 #file_size: int - size in [B] of a stored file
 #type: sting - either 'binary' or 'stdout'

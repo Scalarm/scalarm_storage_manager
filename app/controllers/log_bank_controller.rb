@@ -111,7 +111,7 @@ class LogBankController < ApplicationController
         output_size += simulation_doc['file_size']
       else
         if not simulation_doc.file_object.nil?
-          output_size += simulation_doc.file_object.data.size
+          output_size += simulation_doc.file_object.size
         end
       end
     end
