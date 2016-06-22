@@ -1,5 +1,4 @@
-require 'zip/zip'
-require 'zip/zipfilesystem'
+require 'zip'
 require 'yaml'
 
 require 'scalarm/database/core/mongo_active_record'
@@ -153,14 +152,14 @@ class LogBankController < ApplicationController
   def get_experiment_output_size
     output_size = 0
 
-    SimulationOutputRecord.where(experiment_id: @experiment_id).each do |simulation_doc|
-      if simulation_doc.include?('file_size')
-        output_size += simulation_doc['file_size']
-      else
-        if not simulation_doc.file_object.nil?
-          output_size += simulation_doc.file_object.size
-        end
-      end
+    SimulationOutputRecord.where(experiment_id: @experiment_id).each do |sor|
+      output_size += if sor.file_size
+                       sor.file_size
+                     elsif sor.file_object
+                       sor.file_object.size
+                     else
+                       0
+                    end
     end
 
     render json: { size: output_size }
