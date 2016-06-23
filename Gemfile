@@ -3,7 +3,7 @@ source 'https://rubygems.org'
 # Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
 gem 'rails', '~> 4.2.6'
 
-gem 'rubyzip', '~> 0.9.9'
+gem 'zip-zip'
 
 # Default web server
 gem 'thin'

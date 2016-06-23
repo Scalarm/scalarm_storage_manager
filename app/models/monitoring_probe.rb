@@ -88,7 +88,7 @@ class MonitoringProbe
       end
 
       puts "Table: #{table_name}, Measurement of #{measurement_table[0]} : #{doc}"
-      table.insert(doc)
+      table.insert_one(doc)
       last_inserted_values[table_name] = doc
     end
 
@@ -97,7 +97,7 @@ class MonitoringProbe
   def send_measurement(controller, action, processing_time)
     table_name = "#{@host}.StorageManager___#{controller}___#{action}"
     doc = { date: Time.now, value: processing_time }
-    @db[table_name].insert(doc)
+    @db[table_name].insert_one(doc)
   end
 
   # monitors percantage utilization of the CPU [%]

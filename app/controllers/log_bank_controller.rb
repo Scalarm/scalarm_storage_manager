@@ -1,5 +1,4 @@
-require 'zip/zip'
-require 'zip/zipfilesystem'
+require 'zip'
 require 'yaml'
 
 require 'scalarm/database/core/mongo_active_record'
@@ -49,7 +48,7 @@ class LogBankController < ApplicationController
     # just stream previously save binary data from the backend using included module
     sim_record = SimulationOutputRecord.where(
         experiment_id: @experiment_id,
-        simulation_id: @simulation_id,
+        simulation_idx: @simulation_idx,
         type: 'binary'
     ).first
     file_object = sim_record.nil? ? nil : sim_record.file_object
@@ -57,39 +56,36 @@ class LogBankController < ApplicationController
     if file_object.nil?
       render inline: 'Required file not found', status: 404
     else
-      file_name = "experiment_#{@experiment_id}_simulation_#{@simulation_id}.tar.gz"
+      file_name = "experiment_#{@experiment_id}_simulation_#{@simulation_idx}.tar.gz"
       response.headers['Content-Type'] = 'Application/octet-stream'
       response.headers['Content-Disposition'] = 'attachment; filename="' + file_name + '"'
 
       response.stream.write file_object
-      # file_object.each do |data_chunk|
-      #   response.stream.write data_chunk
-      # end
       response.stream.close
     end
 
   end
 
   def get_simulation_output_size
-    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_id: @simulation_id, type: 'binary').first
-    file_object = sim_record.nil? ? nil : sim_record.file_object
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_idx: @simulation_idx, type: 'binary').first
+    file_data = sim_record.nil? ? nil : sim_record.file_object
 
-    if file_object.nil?
+    if sim_record.nil? or (sim_record.file_size.nil? and file_data.nil?)
       render inline: 'Required file not found', status: 404
     else
-      render json: { size: file_object.file_length }
+      render json: { size: sim_record.file_size || file_data.size }
     end
   end
 
   ##
   # PUT, parameters: file - binary simulation output
   def put_simulation_output
-    unless params[:file] && (tmpfile = params[:file].tempfile)
+    unless params[:file] && (tmpfile = params[:file])
       render inline: 'No file provided', status: 400
     else
       sim_record = SimulationOutputRecord.new(
-          experiment_id: experiment_id,
-          simulation_id: simulation_id,
+          experiment_id: @experiment_id,
+          simulation_idx: @simulation_idx,
           type: 'binary'
       )
       sim_record.set_file_object(tmpfile)
@@ -101,7 +97,7 @@ class LogBankController < ApplicationController
   end
 
   def delete_simulation_output
-    SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_id: @simulation_id, type: 'binary').first.destroy
+    SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_idx: @simulation_idx, type: 'binary').first.destroy
 
     render inline: 'Delete completed'
   end
@@ -114,7 +110,7 @@ class LogBankController < ApplicationController
         output_size += simulation_doc['file_size']
       else
         if not simulation_doc.file_object.nil?
-          output_size += simulation_doc.file_object.data.size
+          output_size += simulation_doc.file_object.size
         end
       end
     end
@@ -134,7 +130,7 @@ class LogBankController < ApplicationController
               # Create a new entry with some arbitrary name
               zos.put_next_entry("experiment_#{@experiment_id}/#{sim_record.file_object_name}")
               # Add the contents of the file, don't read the stuff likewise if its binary, instead use direct IO
-              zos.print file_object.read.force_encoding('UTF-8')
+              zos.print file_object.force_encoding('UTF-8')
             end
           end
         end
@@ -156,14 +152,14 @@ class LogBankController < ApplicationController
   def get_experiment_output_size
     output_size = 0
 
-    SimulationOutputRecord.where(experiment_id: @experiment_id).each do |simulation_doc|
-      if simulation_doc.include?('file_size')
-        output_size += simulation_doc['file_size']
-      else
-        if not simulation_doc.file_object.nil?
-          output_size += simulation_doc.file_object.data.size
-        end
-      end
+    SimulationOutputRecord.where(experiment_id: @experiment_id).each do |sor|
+      output_size += if sor.file_size
+                       sor.file_size
+                     elsif sor.file_object
+                       sor.file_object.size
+                     else
+                       0
+                    end
     end
 
     render json: { size: output_size }
@@ -178,43 +174,40 @@ class LogBankController < ApplicationController
   end
 
   def get_simulation_stdout
-    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_id, type: 'stdout').first
-    file_object = sim_record.nil? ? nil : sim_record.file_object
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_idx: @simulation_idx, type: 'stdout').first
+    file_data = sim_record.nil? ? nil : sim_record.file_object
 
-    if file_object.nil?
+    if file_data.nil?
       render inline: 'Required file not found', status: 404
     else
-      file_name = "experiment_#{@experiment_id}_simulation_#{@simulation_id}_stdout.txt"
+      file_name = "experiment_#{@experiment_id}_simulation_#{@simulation_idx}_stdout.txt"
       response.headers['Content-Type'] = 'text/plain'
       response.headers['Content-Disposition'] = 'attachment; filename="' + file_name + '"'
 
-      file_object.each do |data_chunk|
-        response.stream.write data_chunk
-      end
-
+      response.stream.write file_data
       response.stream.close
     end
 
   end
 
   def get_simulation_stdout_size
-    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_stdout: @simulation_id, type: 'stdout').first
-    file_object = sim_record.nil? ? nil : sim_record.file_object
+    sim_record = SimulationOutputRecord.where(experiment_id: @experiment_id, simulation_idx: @simulation_idx, type: 'stdout').first
+    file_data = sim_record.nil? ? nil : sim_record.file_object
 
-    if file_object.nil?
+    if sim_record.nil? or (sim_record.file_size.nil? and file_data.nil?)
       render inline: 'Required file not found', status: 404
     else
-      render json: { size: file_object.file_length }
+      render json: { size: sim_record.file_size || file_data.size }
     end
   end
 
   def put_simulation_stdout
-    unless params[:file] && (tmpfile = params[:file].tempfile)
+    unless params[:file] && (tmpfile = params[:file])
       render inline: 'No file provided', status: 400
     else
       sim_record = SimulationOutputRecord.new(
-          experiment_id: experiment_id,
-          simulation_id: simulation_id,
+          experiment_id: @experiment_id,
+          simulation_idx: @simulation_idx,
           type: 'stdout'
       )
       sim_record.set_file_object(tmpfile)
@@ -227,8 +220,8 @@ class LogBankController < ApplicationController
 
   def delete_simulation_stdout
     SimulationOutputRecord.where(
-        experiment_id: experiment_id,
-        simulation_id: simulation_id,
+        experiment_id: @experiment_id,
+        simulation_idx: @simulation_idx,
         type: 'stdout'
     ).first.destroy
 
@@ -241,7 +234,7 @@ class LogBankController < ApplicationController
 
   def load_log_bank
     @experiment_id = params[:experiment_id]
-    @simulation_id = params[:simulation_id]
+    @simulation_idx = params[:simulation_id]
   end
 
   ##
